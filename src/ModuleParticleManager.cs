@@ -305,8 +305,6 @@ namespace ParticleManager
                 this.timeBeforeWeaponFired = null;
             }
 
-            this.StopAllParticles();
-
             this.DebugPrint("<ModuleParticleManager> OnPool Complete");
         }
 
