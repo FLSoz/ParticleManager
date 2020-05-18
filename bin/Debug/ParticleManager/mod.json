@@ -1,0 +1,9 @@
+{
+  "Id": "Adds ways to more finely manage when particles play",
+  "DisplayName": "Particle Manager",
+  "Author": "FLSoz",
+  "Version": "0.0.1",
+  "Enable": true,
+  "AssemblyName": "ParticleManager.dll",
+  "EntryMethod": "ParticleManager.QPatch.Main"
+}
