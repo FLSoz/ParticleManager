@@ -5,7 +5,7 @@ Usage:
 Add "ParticleManager.ModuleParticleManager" under root layer (deserializer)
 
 sample usage: (in JSON block file)
-```
+```json
 "Deserializer": {
   "ParticleManager.ModuleParticleManager": {
     "Input": [
@@ -37,19 +37,46 @@ Debug will enable debug printing in TT's output log when set to true (false by d
 Input is where configuration of the system is done.
 
 Input consists of an array of ParticleSystemMetadata objects
+
+```csharp
+[Serializable()]
+public class ParticleSystemMetadata
+{
+    public ParticleSystem m_system;
+    public float value;
+    public CannonBarrel CannonBarrel;
+    public MetadataType type;
+
+    public ParticleSystemMetadata()
+    {
+        this.m_system = null;
+        this.value = 0.0f;
+        this.CannonBarrel = null;
+        this.type = MetadataType.None;
+    }
+}
+```
+
 Each ParticleSystemMetadata object has 4 fields: m_system, value, CannonBarrel, type
+
 The only 2 mandatory fields are m_system, and type
 
 m_system should be passed a reference of the target ParticleSystem that you want controlled
+
 type should be passed a MetadataType enum, either in int, or string form.
 
-The enum details are:
-- Attach = 0,
-- Anchor = 1,
-- SpacePress = 2,
-- SpaceRelease = 3,
-- WeaponCharge = 4,
-- None = 5
+```csharp
+[Serializable()]
+public enum MetadataType
+{
+    Attach = 0,
+    Anchor = 1,
+    SpacePress = 2,
+    SpaceRelease = 3,
+    WeaponCharge = 4,
+    None = 5
+}
+```
 
 Currently, only Attach, Anchor, SpacePress, and SpaceRelease are operational.
 - Attach plays the particle system when the block is attached to a tech, and doesn't otherwise.
