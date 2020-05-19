@@ -27,9 +27,9 @@ namespace ParticleManager
     {
         Attach = 0,
         Anchor = 1,
-        SpacePress = 2,
-        SpaceRelease = 3,
-        WeaponCharge = 4,
-        None = 5
+        WeaponCharge = 2,
+        BarrelCharge = 3,
+        WeaponFiring = 4,
+        None = 6
     }
 }

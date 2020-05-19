@@ -17,30 +17,36 @@ namespace ParticleManager
         public List<ParticleSystem> onAnchor;
 
         // only available for weapon blocks
+        // for weapon firing
+        public List<ParticleSystem> onWeaponFiring;
 
-        // starts playing as soon as you press space
-        public List<ParticleSystem> onSpacePress;
-        // starts playing as soon as you let go of space
-        public List<ParticleSystem> onSpaceRelease;
+        // For standard one-off weapon charging
+        public List<ParticleSystem> onWeaponCharge;
+        public float maxWeaponChargeTime = 0.0f;
 
         // Pair of arrs determine how far ahead of weapon firing it will play effects.
         // sets m_ShotTimer to designated time when first pressing space
         // WARNING: will override particle system start delay to be the same time
-        public List<List<ParticleSystem>> beforeWeaponFired;
-        public List<List<float>> timeBeforeWeaponFired;
+        public List<List<ParticleSystem>> beforeBarrelFired;
+        public List<List<float>> defaultStartDelay;
         public float[] maxTimeNeeded;
+        public float[] adjStartDelay;
+        public List<ParticleSystem> initBeforeBarrelFired;
+        public List<float> initTimeBeforeBarrelFired;
         public List<CannonBarrel> initCannonBarrelList;
 
         public ModuleWeaponGun m_ModuleWeaponGun;
         public CannonBarrel[] m_CannonBarrels;
         public bool[] m_BarrelFired;
 
-        // boolean options to control fire flow
+        // auto-set options to control fire flow
+        public int m_BurstShotCount = 0;
+        public int numStartModifications = 0;
+        public int needToCorrectDelay = 0;
         public bool AllAtOnce = false;
-        public bool LastFireOrder = false;
-        public bool m_ResetBurstOnInterrupt;
-        public bool dynamicTimeCalc = false;
-        public bool firedFirst = false;
+        // public bool m_ResetBurstOnInterrupt;
+        public bool lastFireOrder = false;
+        public bool notFiredFirst = true;
 
         // boolean to control printing
         public bool Debug = false;
@@ -67,117 +73,79 @@ namespace ParticleManager
 
                 this.DebugPrint("New _Input length: " + _Input.Length.ToString());
                 this.DebugPrint("New Input length: " + this.Input.Length.ToString());
-                this.DebugPrint("<ModuleParticleManager> PrePool");
 
-                this.onBlockAttach = new List<ParticleSystem>();
-                this.onAnchor = new List<ParticleSystem>();
-                this.onSpacePress = new List<ParticleSystem>();
-                this.onSpaceRelease = new List<ParticleSystem>();
-
-                this.beforeWeaponFired = new List<List<ParticleSystem>>();
-                this.timeBeforeWeaponFired = new List<List<float>>();
-                this.beforeWeaponFired.Add(new List<ParticleSystem>());
-                this.timeBeforeWeaponFired.Add(new List<float>());
-
-                this.DebugPrint("<ModuleParticleManager> PrePool initialization finished");
-                this.DebugPrint("<ModuleParticleManager> Input Size: " + this.Input.Length.ToString());
-                for (int i = 0; i < this.Input.Length; i++)
-                {
-                    ParticleSystemMetadata metadata = this.Input[i];
-                    this.DebugPrint("<ModuleParticleManager> HANDLED INPUT");
-                    MetadataType type = metadata.type;
-                    ParticleSystem system = metadata.m_system;
-                    if (system == null)
-                    {
-                        this.DebugPrint("<ModuleParticleManager> NULL INPUT SYSTEM?");
-                    }
-                    else
-                    {
-                        // immediately stop the system
-                        system.Stop();
-                        float r_value = metadata.value;
-                        if (type == MetadataType.Attach)
-                        {
-                            this.onBlockAttach.Add(system);
-                        }
-                        else if (type == MetadataType.Anchor)
-                        {
-                            this.onAnchor.Add(system);
-                        }
-                        else if (type == MetadataType.SpacePress)
-                        {
-                            this.onSpacePress.Add(system);
-                        }
-                        else if (type == MetadataType.SpaceRelease)
-                        {
-                            this.onSpaceRelease.Add(system);
-                        }
-                        else if (type == MetadataType.WeaponCharge)
-                        {
-                            var main = system.main;
-                            main.startDelay = new ParticleSystem.MinMaxCurve(r_value);
-                            main.startDelayMultiplier = 1.0f;
-
-                            this.beforeWeaponFired[0].Add(system);
-                            this.timeBeforeWeaponFired[0].Add(r_value);
-                            this.initCannonBarrelList.Add(metadata.CannonBarrel);
-                        }
-                        else
-                        {
-                            this.DebugPrint("<ModuleParticleManager> uh wut happened");
-                        }
-                    }
-                }
-                this.DebugPrint("<ModuleParticleManager> PrePool Complete");
+                this.initialize_values();
             }
         }
 
-        // Register this, handles OnSpacePress, etc
-        private void ControlInputManual(int aim, bool fire)
+        // PrePool step shoved upstream to happen before duplication
+        private void initialize_values()
         {
-            // this.DebugPrint("<ModuleParticleManager> ControlInputManual");
-            if (this.LastFireOrder ^ fire)
+            this.DebugPrint("<ModuleParticleManager> Initialization");
+
+            this.onBlockAttach = new List<ParticleSystem>();
+            this.onAnchor = new List<ParticleSystem>();
+
+            this.onWeaponCharge = new List<ParticleSystem>();
+
+            this.initBeforeBarrelFired = new List<ParticleSystem>();
+            this.initTimeBeforeBarrelFired = new List<float>();
+            this.initCannonBarrelList = new List<CannonBarrel>();
+
+            this.DebugPrint("<ModuleParticleManager> Initialization initialization finished");
+            this.DebugPrint("<ModuleParticleManager> Input Size: " + this.Input.Length.ToString());
+            for (int i = 0; i < this.Input.Length; i++)
             {
-                // change to start firing
-                if (fire)
+                ParticleSystemMetadata metadata = this.Input[i];
+                this.DebugPrint("<ModuleParticleManager> HANDLED INPUT");
+                MetadataType type = metadata.type;
+                ParticleSystem system = metadata.m_system;
+                if (system == null)
                 {
-                    if (this.onSpacePress != null)
-                    {
-                        foreach (ParticleSystem system in this.onSpacePress)
-                        {
-                            system.Play();
-                        }
-                    }
-                    if (this.onSpaceRelease != null)
-                    {
-                        foreach (ParticleSystem system in this.onSpaceRelease)
-                        {
-                            system.Stop();
-                        }
-                    }
+                    this.DebugPrint("<ModuleParticleManager> NULL INPUT SYSTEM?");
                 }
-                // change to stop firing
                 else
                 {
-                    if (this.onSpacePress != null) {
-                        foreach (ParticleSystem system in this.onSpacePress)
-                        {
-                            system.Stop();
-                        }
-                    }
-                    if (this.onSpaceRelease != null)
+                    // immediately stop the system
+                    system.Stop();
+                    float r_value = metadata.value;
+                    if (type == MetadataType.Attach)
                     {
-                        foreach (ParticleSystem system in this.onSpaceRelease)
-                        {
-                            system.Play();
-                        }
+                        this.onBlockAttach.Add(system);
                     }
-                    this.firedFirst = false;
+                    else if (type == MetadataType.Anchor)
+                    {
+                        this.onAnchor.Add(system);
+                    }
+                    else if (type == MetadataType.WeaponCharge)
+                    {
+                        this.onWeaponCharge.Add(system);
+                        this.maxWeaponChargeTime = r_value;
+                    }
+                    else if (type == MetadataType.WeaponFiring)
+                    {
+                        this.onWeaponFiring.Add(system);
+                    }
+                    else if (type == MetadataType.BarrelCharge)
+                    {
+                        var main = system.main;
+                        main.startDelay = new ParticleSystem.MinMaxCurve(r_value);
+                        main.startDelayMultiplier = 1.0f;
+
+                        // this.beforeBarrelFired[0].Add(system);
+                        // this.defaultStartDelay[0].Add(r_value);
+
+                        this.initBeforeBarrelFired.Add(system);
+                        this.initTimeBeforeBarrelFired.Add(r_value);
+                        this.initCannonBarrelList.Add(metadata.CannonBarrel);
+                    }
+                    else
+                    {
+                        this.DebugPrint("<ModuleParticleManager> uh wut happened");
+                    }
                 }
             }
-
-            this.LastFireOrder = fire;
-            return;
+            this.DebugPrint("<ModuleParticleManager> Initialization Complete");
         }
 
         // m_NextBarrelToFire is which barrel will be fired immediately after, if this does not fail
@@ -185,47 +153,219 @@ namespace ParticleManager
         // return 0.0 if everything is kosher
 
         // should handle spinup times (looks like not possible rip)
-        public float PrepareFiring(int m_NextBarrelToFire) {
-            this.DebugPrint("<ModuleParticleManager> PrepareFiring");
-            if (!this.dynamicTimeCalc)
-            {
-                if (!this.firedFirst && this.beforeWeaponFired.Count > 0)
+        public float PrepareFiring(bool fireOrder, bool result, int m_NextBarrelToFire) {
+            float retval = 0.0f;
+            if (this.lastFireOrder != fireOrder) {
+                this.DebugPrint("<ModuleParticleManager> PrepareFiring registered command state change");
+                // toggled on, weapon now wants to fire
+                if (fireOrder)
                 {
-                    foreach (ParticleSystem system in this.beforeWeaponFired[0])
-                    {
-                        system.Play();
+                    // play generic weapon firing particles
+                    this.playSelectedParticles(this.onWeaponFiring, "  ", "<ModuleParticleManager> Attempting to play overall weapon firing particles");
+
+                    //Here, we only care about weapon charge stuff. Individual barrels are handled by ProcessFiring
+                    if (this.onWeaponCharge != null) {
+                        // startDelays have been set to account for FireSpinners in OnPool
+                        // here, just need to play particles, set delay if > 0.0
+                        this.playSelectedParticles(this.onWeaponCharge, "  ", "<ModuleParticleManager> Attempting to play overall weapon charge particles");
+
+                        retval = this.maxWeaponChargeTime;
                     }
-                    this.firedFirst = true;
-                    return this.maxTimeNeeded[m_NextBarrelToFire];
                 }
+                // toggled off, weapon now wants to stop firing, stop playing particles
+                else
+                {
+                    // play generic weapon firing particles
+                    this.stopSelectedParticles(this.onWeaponFiring, "  ", "<ModuleParticleManager> Attempting to stop overall weapon firing particles");
+
+                    // stop weapon charge particles (if they haven't been stopped already)
+                    this.stopSelectedParticles(this.onWeaponCharge, "  ", "<ModuleParticleManager> Attempting to stop overall weapon charge particles (just in case)");
+                }
+
+                // regardless of change, to change means we reset these params
+                this.notFiredFirst = true;
+                this.needToCorrectDelay = 0;
             }
-            return 0.0f;
+            this.lastFireOrder = fireOrder;
+            return retval;
         }
 
-        // m_NextBarrelToFire has already been set, means should be appropriate barrel to play particle effects on
-        public void ProcessFiring(int m_NextBarrelToFire, int numBarrelsFired) {
-            this.DebugPrint("<ModuleParticleManager> ProcessFiring");
-            if (!this.dynamicTimeCalc)
+        // is Prefixed, so m_NextBarrelToFire is the correct barrel (that will be fired)
+        public float ProcessFiring(bool toFire, int m_NextBarrelToFire) {
+            
+            float retval = 0.0f;
+            if (toFire)
             {
+                this.DebugPrint("<ModuleParticleManager> ProcessFiring");
+                // first shot, forcibly set to proper cooldown
+                // our being here ==> weapon charging/spinup cooldown has elapsed, can now stop weapon charging
+                if (this.notFiredFirst)
+                {
+                    // disable weapon charging animations
+                    this.stopSelectedParticles(this.onWeaponCharge, "  ", "<ModuleParticleManager> stopping on charge particles now");
+
+                    retval = this.ProcessFirstShot(m_NextBarrelToFire);
+
+                    this.notFiredFirst = false;
+                }
+                // not first shot, don't want to touch cooldowns
+                // just stop playing the charging animations of the to-be-fired barrels, start charging animations of the next one
+                else if (this.beforeBarrelFired != null)
+                {
+                    // If need to correct stuff, do everything here
+                    if (this.needToCorrectDelay > 0)
+                    {
+                        this.ProcessWeaponReset(m_NextBarrelToFire);
+                        this.needToCorrectDelay -= 1;
+                    }
+                    // no need to correct stuff, just stop, and play as appropriate
+                    else
+                    {
+                        this.ProcessBarrelFire(m_NextBarrelToFire);
+                    }
+                }
+            }
+
+            return retval;
+        }
+
+        // handle first shot stuffs
+        private float ProcessFirstShot(int m_NextBarrelToFire)
+        {
+            this.DebugPrint("  <ModuleParticleManager> Detected first shot fired, setting appropriate delay for charging purposes");
+
+            if (this.beforeBarrelFired != null)
+            {
+                // if AllAtOnce, need to play for all
                 if (this.AllAtOnce)
                 {
-                    foreach (List<ParticleSystem> system_list in this.beforeWeaponFired)
+                    this.DebugPrint("  <ModuleParticleManager> AllAtOnce detected, starting all barrels' charge animations");
+                    for (int i = 0; i < this.beforeBarrelFired.Count; i++)
                     {
-                        foreach (ParticleSystem system in system_list)
+                        List<ParticleSystem> systemList = this.beforeBarrelFired[i];
+                        if (systemList != null)
                         {
-                            system.Play();
+                            for (int j = 0; j < systemList.Count; j++)
+                            {
+                                if (this.adjStartDelay[i] != 0.0f)
+                                {
+                                    var main = systemList[j].main;
+                                    main.startDelay = new ParticleSystem.MinMaxCurve(this.defaultStartDelay[i][j] - this.adjStartDelay[i]);
+                                }
+                            }
+                        }
+                        this.playSelectedParticles(systemList, "    ", "<ModuleParticleManager> Attempting to play Barrel #" + i.ToString() + " particles");
+                    }
+                    this.needToCorrectDelay = 1;
+                }
+                // else, need only play proper one
+                else
+                {
+                    this.DebugPrint("  <ModuleParticleManager> Attempt to play particle effect of first shot, need to set total of " + this.numStartModifications.ToString() + "shots");
+                    int curr_barrel = m_NextBarrelToFire;
+                    int m_NumCannonBarrels = this.maxTimeNeeded.Length;
+                    for (int i = 0; i < this.numStartModifications; i++)
+                    {
+                        List<ParticleSystem> systemList = this.beforeBarrelFired[curr_barrel];
+                        if (systemList != null)
+                        {
+                            for (int j = 0; j < systemList.Count; j++)
+                            {
+                                if (this.adjStartDelay[curr_barrel] != 0.0f)
+                                {
+                                    var main = systemList[j].main;
+                                    main.startDelay = new ParticleSystem.MinMaxCurve(this.defaultStartDelay[curr_barrel][j] - this.adjStartDelay[curr_barrel]);
+                                }
+                            }
+                        }
+                        this.playSelectedParticles(this.beforeBarrelFired[curr_barrel], "    ", "<ModuleParticleManager> Attempting to play Barrel #" + curr_barrel.ToString() + " particles");
+                        curr_barrel = curr_barrel == m_NumCannonBarrels - 1 ? 0 : m_NextBarrelToFire + 1;
+                    }
+
+                    // either fired all barrels, which ignores this counter (used as bool), or fired only one barrel
+                    // if one barrel was part of burst, we now must handle it
+                    this.needToCorrectDelay = this.numStartModifications;
+                }
+            }
+            return this.maxTimeNeeded[m_NextBarrelToFire];
+        }
+
+        // handle resetting to factory condition. guarantee needToCorrectDelay has correct number of things
+        private void ProcessWeaponReset(int m_NextBarrelToFire)
+        {
+            this.DebugPrint("  <ModuleParticleManager> Detected shot fired, non-first, reset needed");
+            if (this.AllAtOnce)
+            {
+                this.DebugPrint("    <ModuleParticleManager> AllAtOnce found, need to fix all barrels");
+                for (int i = 0; i < this.beforeBarrelFired.Count; i++)
+                {
+                    List<ParticleSystem> systemList = this.beforeBarrelFired[i];
+                    if (systemList != null)
+                    {
+                        this.stopSelectedParticles(systemList, "    ", "<ModuleParticleManager> Attempting to stop Barrel #" + i.ToString() + " particles");
+                        for (int j = 0; j < systemList.Count; j++)
+                        {
+                            if (this.adjStartDelay[i] != 0.0f)
+                            {
+                                var main = systemList[j].main;
+                                main.startDelay = new ParticleSystem.MinMaxCurve(this.defaultStartDelay[i][j]);
+                            }
+                        }
+                    }
+                }
+            }
+            // switching bool to int means we get better control of when we are finished counting, no need to case, second half works as intended
+            // else if (this.m_BurstShotCount > 1) { }
+            else
+            {
+                this.DebugPrint("    <ModuleParticleManager> No AllAtOnce, need to reset target barrels: " + m_NextBarrelToFire.ToString());
+                List<ParticleSystem> systemList = this.beforeBarrelFired[m_NextBarrelToFire];
+                if (systemList != null)
+                {
+                    // Stop particles from playing on this PS first
+                    this.stopSelectedParticles(systemList, "    ", "<ModuleParticleManager> Attempting to stop Barrel #" + m_NextBarrelToFire.ToString() + " particles");
+
+                    // fix it
+                    for (int j = 0; j < systemList.Count; j++)
+                    {
+                        if (this.adjStartDelay[m_NextBarrelToFire] != 0.0f)
+                        {
+                            var main = systemList[j].main;
+                            main.startDelay = new ParticleSystem.MinMaxCurve(this.defaultStartDelay[m_NextBarrelToFire][j]);
                         }
                     }
                 }
             }
         }
 
-        // handle animations proper
-        /* private void PrePool()
+        // handle last case
+        private void ProcessBarrelFire(int m_NextBarrelToFire)
         {
-            
-            return;
-        } */
+            this.DebugPrint("  <ModuleParticleManager> Detected shot fired, non-first, no reset");
+            if (this.AllAtOnce)
+            {
+                this.DebugPrint("  <ModuleParticleManager> AllAtOnce need to cycle all particles");
+                for (int i = 0; i < this.beforeBarrelFired.Count; i++)
+                {
+                    this.DebugPrint("    <ModuleParticleManager> Attempting to cycle Barrel #" + i.ToString() + " particles");
+                    List<ParticleSystem> systemList = this.beforeBarrelFired[i];
+                    this.stopSelectedParticles(systemList, "      ", "<ModuleParticleManager> Attempting to stop Barrel #" + i.ToString() + " particles");
+                    this.playSelectedParticles(systemList, "      ", "<ModuleParticleManager> Attempting to play Barrel #" + i.ToString() + " particles");
+                }
+            }
+            // don't care about burst count after it's been corrected
+            else
+            {
+                this.DebugPrint("  <ModuleParticleManager> Single Barrel" + m_NextBarrelToFire.ToString() + " need to cycle particles");
+
+                this.DebugPrint("    <ModuleParticleManager> Attempting to cycle Barrel #" + m_NextBarrelToFire.ToString() + " particles");
+                this.stopSelectedParticles(this.beforeBarrelFired[m_NextBarrelToFire], "      ", "<ModuleParticleManager> Attempting to stop Barrel #" + m_NextBarrelToFire.ToString() + " particles");
+
+                int m_NumCannonBarrels = this.maxTimeNeeded.Length;
+                int nextBarrelToPlay = m_NextBarrelToFire == m_NumCannonBarrels - 1 ? 0 : m_NextBarrelToFire + 1;
+                this.playSelectedParticles(this.beforeBarrelFired[nextBarrelToPlay], "      ", "<ModuleParticleManager> Attempting to play Barrel #" + nextBarrelToPlay.ToString() + " particles");
+            }
+        }
 
         // called from ModuleWeaponGun OnPool
         // Input: proper order of things
@@ -233,44 +373,59 @@ namespace ParticleManager
         public bool AlignCannonBarrels(CannonBarrel[] m_CannonBarrels)
         {
             this.DebugPrint("<ModuleParticleManager> AlignCannonBarrels");
-            // only bother to align if we're aligning more than one something, of course
-            if (!(this.timeBeforeWeaponFired == null) && (this.timeBeforeWeaponFired.Count > 0) && this.timeBeforeWeaponFired[0].Count > 0)
-            {
+
+            if (this.initBeforeBarrelFired != null && this.initBeforeBarrelFired.Count > 0) {
+                this.beforeBarrelFired = new List<List<ParticleSystem>>();
+                this.defaultStartDelay = new List<List<float>>();
+                this.beforeBarrelFired.Add(new List<ParticleSystem>());
+                this.defaultStartDelay.Add(new List<float>());
+
                 // initialize the structures
                 for (int i = 1; i < m_CannonBarrels.Length; i++)
                 {
-                    this.beforeWeaponFired.Add(new List<ParticleSystem>());
-                    this.timeBeforeWeaponFired.Add(new List<float>());
+                    this.beforeBarrelFired.Add(new List<ParticleSystem>());
+                    this.defaultStartDelay.Add(new List<float>());
                 }
 
                 // we know they've been shoved in order.
-                List<ParticleSystem> init_system_dump = this.beforeWeaponFired[0];
-                List<float> init_float_dump = this.timeBeforeWeaponFired[0];
-                this.beforeWeaponFired[0] = new List<ParticleSystem>();
-                this.timeBeforeWeaponFired[0] = new List<float>();
+                List<ParticleSystem> init_system_dump = this.initBeforeBarrelFired;
+                List<float> init_float_dump = this.initTimeBeforeBarrelFired;
+                // this.beforeBarrelFired[0] = new List<ParticleSystem>();
+                // this.defaultStartDelay[0] = new List<float>();
                 this.maxTimeNeeded = new float[m_CannonBarrels.Length];
+                this.adjStartDelay = new float[m_CannonBarrels.Length];
+
+                this.DebugPrint("Stuff was initialized (CannonBarrelAlign)");
 
                 // Identify proper barrel index, shove it in there. Shove into barrel 0 if no CannonBarrel provided
                 for (int i = 0; i < init_system_dump.Count; i++)
                 {
+                    this.DebugPrint("Begin init entry " + i.ToString());
                     CannonBarrel target_barrel = this.initCannonBarrelList[i];
                     bool match = false;
                     for (int j = 0; j < m_CannonBarrels.Length; j++)
                     {
                         if (target_barrel == m_CannonBarrels[j])
                         {
-                            this.beforeWeaponFired[j].Add(init_system_dump[i]);
-                            this.timeBeforeWeaponFired[j].Add(init_float_dump[i]);
+                            this.DebugPrint("  entry [" + i.ToString() + "] has matched to barrel <" + j.ToString() + ">");
+                            this.beforeBarrelFired[j].Add(init_system_dump[i]);
+                            this.DebugPrint("  dump1");
+                            this.defaultStartDelay[j].Add(init_float_dump[i]);
+                            this.DebugPrint("  dump2");
                             this.maxTimeNeeded[j] = Mathf.Max(this.maxTimeNeeded[j], init_float_dump[i]);
+                            this.DebugPrint("  dump3");
                             match = true;
                             break;
                         }
                     }
                     if (!match)
                     {
-                        this.beforeWeaponFired[0].Add(init_system_dump[i]);
-                        this.timeBeforeWeaponFired[0].Add(init_float_dump[i]);
+                        this.beforeBarrelFired[0].Add(init_system_dump[i]);
+                        this.DebugPrint("  dump1");
+                        this.defaultStartDelay[0].Add(init_float_dump[i]);
+                        this.DebugPrint("  dump2");
                         this.maxTimeNeeded[0] = Mathf.Max(this.maxTimeNeeded[0], init_float_dump[i]);
+                        this.DebugPrint("  dump3");
                     }
                 }
                 return true;
@@ -299,21 +454,20 @@ namespace ParticleManager
             this.m_ModuleWeaponGun = this.GetComponent<ModuleWeaponGun>();
             if (this.m_ModuleWeaponGun == null)
             {
+                this.DebugPrint("<ModuleParticleManager> DID NOT FIND MODULEWEAPONGUN");
                 // this.onSpacePress = null;
                 // this.onSpaceRelease = null;
-                this.beforeWeaponFired = null;
-                this.timeBeforeWeaponFired = null;
+                this.beforeBarrelFired = null;
+                this.defaultStartDelay = null;
             }
 
             this.DebugPrint("<ModuleParticleManager> OnPool Complete");
         }
 
-        public void OnRequestFire() { }
-
         private void OnAttach()
         {
             this.DebugPrint("<ModuleParticleManager> OnAttach");
-            this.playAttachParticles();
+            this.playSelectedParticles(this.onBlockAttach, "  ", "<ModuleParticleManager> OnAttach Particles set to Play");
 
             if (this.block == null)
             {
@@ -324,13 +478,8 @@ namespace ParticleManager
             {
                 if (this.block.tank.IsBase)
                 {
-                    foreach (ParticleSystem system in this.onAnchor)
-                    {
-                        system.Play();
-                    }
+                    this.playSelectedParticles(this.onAnchor, "  ", "<ModuleParticleManager> OnAnchor Triggered (from OnAttach init)");
                 }
-                this.block.tank.control.manualAimFireEvent.Subscribe(new System.Action<int, bool>(this.ControlInputManual));
-            
                 this.block.tank.AnchorEvent.Subscribe(new System.Action<ModuleAnchor, bool, bool>(this.OnAnchorStatusChanged));
             }
             return;
@@ -348,7 +497,12 @@ namespace ParticleManager
                 this.block.tank.AnchorEvent.Unsubscribe(new System.Action<ModuleAnchor, bool, bool>(this.OnAnchorStatusChanged));
             }
             this.StopAllParticles();
-            this.firedFirst = false;
+
+            // Reset all weapon stuffs to factory condition
+            this.notFiredFirst = true;
+            this.needToCorrectDelay = 0;
+            this.lastFireOrder = false;
+            // Reset weapon particle systems to default start delay
             return;
         }
 
@@ -357,17 +511,11 @@ namespace ParticleManager
             this.DebugPrint("<ModuleParticleManager> OnAnchorStatusChanged");
             if (anchored)
             {
-                foreach (ParticleSystem system in this.onAnchor)
-                {
-                    system.Play();
-                }
+                this.playSelectedParticles(this.onAnchor, "  ", "<ModuleParticleManager> Playing anchored particles");
             }
             else
             {
-                foreach (ParticleSystem system in this.onAnchor)
-                {
-                    system.Stop();
-                }
+                this.stopSelectedParticles(this.onAnchor, "  ", "<ModuleParticleManager> Stopping anchored particles");
             }
             return;
         }
@@ -375,39 +523,40 @@ namespace ParticleManager
         private void StopAllParticles()
         {
             this.DebugPrint("  <ModuleParticleManager> Request Stopping all Particles");
+            this.DebugPrint("    <ModuleParticleManager> Stopping OnblockAttach");
             foreach (ParticleSystem system in this.onBlockAttach)
             {
                 this.DebugPrint("      <ModuleParticleManager> Found a PS");
                 system.Stop();
             }
-            this.DebugPrint("    <ModuleParticleManager> OnblockAttach Stopped");
+            this.DebugPrint("    <ModuleParticleManager> Stopping Onanchor");
             foreach (ParticleSystem system in this.onAnchor)
             {
                 this.DebugPrint("      <ModuleParticleManager> Found a PS");
                 system.Stop();
             }
-            this.DebugPrint("    <ModuleParticleManager> Onanchor Stopped");
-            if (this.onSpacePress != null)
+            this.DebugPrint("    <ModuleParticleManager> Stopping OnWeaponCharge");
+            if (this.onWeaponCharge != null)
             {
-                foreach (ParticleSystem system in this.onSpacePress)
+                foreach (ParticleSystem system in this.onWeaponCharge)
                 {
                     this.DebugPrint("      <ModuleParticleManager> Found a PS");
                     system.Stop();
                 }
             }
-            this.DebugPrint("    <ModuleParticleManager> OnSpacePress Stopped");
-            if (this.onSpaceRelease != null)
+            this.DebugPrint("    <ModuleParticleManager> Stopping OnWeaponFiring");
+            if (this.onWeaponFiring != null)
             {
-                foreach (ParticleSystem system in this.onSpaceRelease)
+                foreach (ParticleSystem system in this.onWeaponFiring)
                 {
                     this.DebugPrint("      <ModuleParticleManager> Found a PS");
                     system.Stop();
                 }
             }
-            this.DebugPrint("    <ModuleParticleManager> OnSpaceRelease Stopped");
-            if (this.beforeWeaponFired != null)
+            this.DebugPrint("    <ModuleParticleManager> Stopping beforeBarrelFired");
+            if (this.beforeBarrelFired != null)
             {
-                foreach (List<ParticleSystem> system_list in this.beforeWeaponFired)
+                foreach (List<ParticleSystem> system_list in this.beforeBarrelFired)
                 {
                     foreach (ParticleSystem system in system_list)
                     {
@@ -416,22 +565,45 @@ namespace ParticleManager
                     }
                 }
             }
-            this.DebugPrint("    <ModuleParticleManager> beforeWeaponFired stopped");
             return;
         }
 
-        private void playAttachParticles()
+        private void playSelectedParticles(List<ParticleSystem> systemList, string prefix, string toPrint)
         {
-            this.DebugPrint("  <ModuleParticleManager> Play Attach Particles");
-            foreach (ParticleSystem system in this.onBlockAttach)
+            if (systemList != null)
             {
-                this.DebugPrint("    <ModuleParticleManager> Found a PS");
-                // ParticleSystem.MainModule main = system.main;
-                // main.prewarm = true;
-                system.Play();
+                this.DebugPrint(prefix + toPrint);
+                foreach (ParticleSystem system in systemList)
+                {
+                    this.DebugPrint(prefix + "  <ModuleParticleManager> Found a PS");
+                    system.Clear();
+                    system.Play();
+                }
             }
+            else
+            {
+                this.DebugPrint(prefix + "<ModuleParticleManager> NULL PS List");
+            }
+            return;
         }
 
+        private void stopSelectedParticles(List<ParticleSystem> systemList, string prefix, string toPrint)
+        {
+            if (systemList != null)
+            {
+                this.DebugPrint(prefix + toPrint);
+                foreach (ParticleSystem system in systemList)
+                {
+                    this.DebugPrint(prefix + "  <ModuleParticleManager> Found a PS");
+                    system.Stop();
+                }
+            }
+            else
+            {
+                this.DebugPrint(prefix + "<ModuleParticleManager> NULL PS List");
+            }
+            return;
+        }
 
         private void OnRecycle()
         {
