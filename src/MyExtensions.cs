@@ -23,11 +23,10 @@ namespace ParticleManager
                     int __m_NextBarrelToFire = (int)m_NextBarrelToFire.GetValue((object)__instance);
 
                     float to_set = newModule.PrepareFiring(prepareFiring, __result, __m_NextBarrelToFire);
+                    Console.WriteLine("Attempting to set shotTimer to: " + to_set.ToString());
+                    m_ShotTimer.SetValue(__instance, to_set);
                     if (to_set > 0.0)
                     {
-                        Console.WriteLine("Attempting to set shotTimer to: " + to_set.ToString());
-                        m_ShotTimer.SetValue(__instance, to_set);
-
                         __result = false;
                     }
                 }
@@ -53,10 +52,10 @@ namespace ParticleManager
                     //float __m_ShotTimer = (float)m_ShotTimer.GetValue((object)__instance);
 
                     float to_set = newModule.ProcessFiring(firing, __m_NextBarrelToFire);
+                    Console.WriteLine("Attempting to set shotTimer to: " + to_set.ToString());
+                    m_ShotTimer.SetValue(__instance, to_set);
                     if (to_set > 0.0f)
                     {
-                        Console.WriteLine("Attempting to set shotTimer to: " + to_set.ToString());
-                        m_ShotTimer.SetValue(__instance, to_set);
                         firing = false;
                     }
                 }
