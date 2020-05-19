@@ -19,7 +19,7 @@ sample usage: (in JSON block file)
         "m_system": "/FX_HE_PlasmaTeeth_Beam_copy/ParticleSystem.",
         "value": 0.0,
         "CannonBarrel": null,
-        "type": "SpaceRelease"
+        "type": "WeaponFiring"
       }
     ],
     "Debug": true
@@ -71,18 +71,47 @@ public enum MetadataType
 {
     Attach = 0,
     Anchor = 1,
-    SpacePress = 2,
-    SpaceRelease = 3,
-    WeaponCharge = 4,
-    None = 5
+    WeaponCharge = 2,
+    BarrelCharge = 3,
+    WeaponFiring = 4,
+    None = 6
 }
 ```
 
-Currently, only Attach, Anchor, SpacePress, and SpaceRelease are operational.
+Currently, only Attach, Anchor, WeaponFiring, and WeaponCharge are operational.
+
 - Attach plays the particle system when the block is attached to a tech, and doesn't otherwise.
+```json
+{
+  "m_system": "/_gimbalBase/_gimbalElev/fx_Lightning/ParticleSystem.",
+  "type": "Attach"
+}
+```
+
 - Anchor plays the particle system when the block is on a tech that's anchored, and doesn't otherwise.
-- SpacePress will play the particle system when space is pressed (correspond with weapon firing). It's meant to be used on weapon blocks, but works fine on non-weapon blocks. When space is released, the particle system will stop playing
-- SpaceRelease will play the particle system when space is released (corresponds with stopped firing, no idea what you would want it for). When space is then pressed, the particle system will stop playing
+```json
+{
+  "m_system": "/_gimbalBase/_gimbalElev/fx_Lightning/ParticleSystem.",
+  "type": "Anchor"
+}
+```
+
+- WeaponFiring will play a particle system as long as that weapon is actively firing at something.
+```json
+{
+  "m_system": "/_gimbalBase/_gimbalElev/fx_Lightning/ParticleSystem.",
+  "type": "WeaponFiring"
+}
+```
+
+- WeaponCharge will play a particle system from the moment a weapon tries to fire, till the time it fires its first shot. If the provided time for how long the particle system will play is longer than the time normally spent before the first shot is fire (i.e. spinner spinup), the ParticleManager will artificially inflate the time until the first shot is fired. (spinup times are unaffected)
 Nota Bene: all particle systems will stop playing when the parent block is removed from the tech
+```json
+{
+  "m_system": "/_gimbalBase/_gimbalElev/fx_Lightning/ParticleSystem.",
+  "value": 5.0,
+  "type": "WeaponCharge"
+}
+```
 
 the fields CannonBarrel and value correspond to highly experimental functionality tied to weapon cooldowns. I make no promises about your functionality then.
