@@ -39,7 +39,7 @@ namespace ParticleManager
     [HarmonyPatch("ProcessFiring")]
     public static class PatchModuleWeaponGunProcess
     {
-        public static bool Prefix(ref ModuleWeaponGun __instance, bool firing)
+        public static bool Prefix(ref ModuleWeaponGun __instance, ref bool firing)
         {
             ModuleParticleManager newModule = __instance.GetComponent<ModuleParticleManager>();
             if (newModule != null)
@@ -57,6 +57,7 @@ namespace ParticleManager
                     {
                         Console.WriteLine("Attempting to set shotTimer to: " + to_set.ToString());
                         m_ShotTimer.SetValue(__instance, to_set);
+                        firing = false;
                     }
                 }
             }
@@ -129,7 +130,7 @@ namespace ParticleManager
                         {
                             var main = system.main;
                             ParticleSystem.MinMaxCurve startDelay = main.startDelay;
-                            main.startDelay = new ParticleSystem.MinMaxCurve(startDelay.constant + incrStartDelay);
+                            main.startDelay = startDelay.constant + incrStartDelay;
                         }
                     }
                 }
@@ -148,41 +149,86 @@ namespace ParticleManager
                     newModule.AllAtOnce = true;
 
                     // select which reload we gon be using
-                    float min_reload = __m_ShotCooldown;
+                    float cycle_time = __m_ShotCooldown;
                     if (__m_BurstShotCount > 0)
                     {
                         if (__m_NumCannonBarrels != __m_BurstShotCount)
                         {
                             // this is dynamic cooldown
-                            // min_reload = Mathf.Min(min_reload, __m_BurstCooldown);
+                            // cycle_time = Mathf.Min(cycle_time, __m_BurstCooldown);
                             // newModule.dynamicTimeCalc = true;
                             newModule.beforeBarrelFired = null;
-                            newModule.defaultStartDelay = null;
+                            newModule.defaultTimeNeeded = null;
                         }
                         else
                         {
-                            min_reload = __m_BurstCooldown;
+                            cycle_time = __m_BurstCooldown;
                         }
                     }
 
                     for (int i = 0; i < __m_NumCannonBarrels; i++)
                     {
-                        List<float> curr_list = newModule.defaultStartDelay[i];
+                        List<float> curr_list = newModule.defaultTimeNeeded[i];
                         List<ParticleSystem> curr_system_list = newModule.beforeBarrelFired[i];
                         float maxTime = 0.0f;
+                        float[] timeRequested = new float[curr_list.Count];
+                        bool found_to_remove = false;
                         for (int j = 0; j < curr_list.Count; j++)
                         {
-                            float maxTimeAvailable = Mathf.Min(curr_list[j], min_reload);
-
-                            curr_list[j] = min_reload - maxTimeAvailable;
+                            float maxTimeAvailable = Mathf.Min(curr_list[j], cycle_time);
+                            
                             var main = curr_system_list[j].main;
-                            main.startDelay = new ParticleSystem.MinMaxCurve(curr_list[j]);
-                            main.startDelayMultiplier = 1.0f;
-
-                            maxTime = Mathf.Max(curr_list[j], maxTime);
+                            timeRequested[j] = maxTimeAvailable - main.startDelay.constant;
+                            if (timeRequested[j] <= 0.0f)
+                            {
+                                found_to_remove = true;
+                            }
+                            else {
+                                maxTime = Mathf.Max(maxTimeAvailable, maxTime);
+                            }
                         }
-                        newModule.adjStartDelay[i] = min_reload - maxTime;
-                        newModule.maxTimeNeeded[i] = maxTime;
+                        // newModule.adjStartDelay[i] = cycle_time - maxTime;
+                        newModule.adjCycleDelay[i] = cycle_time - maxTime;  // how much time between cycle end, and start of particles in next cycle
+                        newModule.maxTimeNeeded[i] = maxTime;               // how much time is enough for every single system
+
+                        // remove particle systems that request 0 time
+                        if (found_to_remove)
+                        {
+                            List<float> temp_list = new List<float>();
+                            List<ParticleSystem> temp_system_list = new List<ParticleSystem>();
+
+                            int offset = 0;
+
+                            for (int j = 0; j < curr_list.Count; j++)
+                            {
+                                if (timeRequested[j] > 0.0f) {
+                                    temp_list.Add(curr_list[j]);
+                                    temp_system_list.Add(curr_system_list[j]);
+                                    timeRequested[j - offset] = timeRequested[j];
+                                }
+                                else
+                                {
+                                    offset += 1;
+                                }
+                            }
+
+                            newModule.defaultTimeNeeded[i] = temp_list;
+                            newModule.beforeBarrelFired[i] = temp_system_list;
+
+                            curr_list = newModule.defaultTimeNeeded[i];
+                            curr_system_list = newModule.beforeBarrelFired[i];
+                        }
+
+                        // set proper startDelays for remaining PS
+                        for (int j = 0; j < curr_list.Count; j++)
+                        {
+                            float newDelay = maxTime - timeRequested[j];
+
+                            ParticleSystem currSystem = curr_system_list[j];
+                            var main = currSystem.main;
+                            main.startDelay = newDelay;
+                            // main.startDelayMultiplier = 1.0f;
+                        }
                     }
                 }
                 // handle burst fire. burst > 1 means it's actual burst fire. burst == 1 means it's sequential fire, with burst cooldown overriding shot cooldown
@@ -192,7 +238,7 @@ namespace ParticleManager
                     // reset on interrupt isn't dynamic, but breaks assumptions used in start-barrel calculations, so we forcibly set it to true
                     m_ResetBurstOnInterrupt.SetValue(__instance, true);
 
-                    // if this is true, can be safe in knowledge that existing grace_timer stuff is good
+                    // if this is true, can be safe in knowledge that existing cycle_timer stuff is good
                     // we don't care. we solve this by using ModuleParticleManager.HandleFirst(m_currentBarrelInd) or thereabouts
                     /* if (__m_ResetBurstOnInterrupt)
                     {
@@ -209,52 +255,98 @@ namespace ParticleManager
                         {
                             /* for (int i = 0; i < __m_NumCannonBarrels; i++)
                             {
-                                List<float> curr_list = newModule.defaultStartDelay[i];
+                                List<float> curr_list = newModule.defaultTimeNeeded[i];
                                 List<ParticleSystem> curr_system_list = newModule.beforeBarrelFired[i];
                                 for (int j = 0; j < curr_list.Count; j++)
                                 {
                                     curr_list[j] = Mathf.Min(curr_list[j], __m_ShotCooldown);
                                     var main = curr_system_list[j].main;
-                                    main.startDelay = new ParticleSystem.MinMaxCurve(__m_ShotCooldown - curr_list[j]);
-                                    main.startDelayMultiplier = 1.0f;
+                                    main.startDelay = __m_ShotCooldown - curr_list[j];
+                                    // main.startDelayMultiplier = 1.0f;
                                 }
                             } */
                             // newModule.dynamicTimeCalc = true;
                             newModule.beforeBarrelFired = null;
-                            newModule.defaultStartDelay = null;
+                            newModule.defaultTimeNeeded = null;
                         }
                         // must be same number - each burst fires off a volley
                         else
                         {
                             // grace time is time to go through, + burst cooldown
-                            float grace_time = (__m_ShotCooldown * (__m_BurstShotCount - 1)) + __m_BurstCooldown;
+                            float cycle_time = (__m_ShotCooldown * (__m_BurstShotCount - 1)) + __m_BurstCooldown;
 
-                            // set grace_time as ceiling
+                            // set cycle_time as ceiling
                             for (int i = 0; i < __m_NumCannonBarrels; i++)
                             {
-                                List<float> curr_list = newModule.defaultStartDelay[i];
+                                List<float> curr_list = newModule.defaultTimeNeeded[i];
                                 List<ParticleSystem> curr_system_list = newModule.beforeBarrelFired[i];
-
                                 float maxTime = 0.0f;
+                                float[] timeRequested = new float[curr_list.Count];
+                                bool found_to_remove = false;
                                 for (int j = 0; j < curr_list.Count; j++)
                                 {
-                                    float maxTimeAvailable = Mathf.Min(curr_list[j], grace_time);
-                                    curr_list[j] = grace_time - maxTimeAvailable;
+                                    float maxTimeAvailable = Mathf.Min(curr_list[j], cycle_time);
 
                                     var main = curr_system_list[j].main;
-                                    main.startDelay = new ParticleSystem.MinMaxCurve(curr_list[j]);
-                                    main.startDelayMultiplier = 1.0f;
-
-                                    maxTime = Mathf.Max(curr_list[j], maxTime);
+                                    timeRequested[j] = maxTimeAvailable - main.startDelay.constant;
+                                    if (timeRequested[j] <= 0.0f)
+                                    {
+                                        found_to_remove = true;
+                                    }
+                                    else
+                                    {
+                                        maxTime = Mathf.Max(maxTimeAvailable, maxTime);
+                                    }
                                 }
-                                newModule.adjStartDelay[i] = grace_time - maxTime;
-                                newModule.maxTimeNeeded[i] = maxTime;
+                                // newModule.adjStartDelay[i] = cycle_time - maxTime;
+                                newModule.adjCycleDelay[i] = cycle_time - maxTime;  // how much time between cycle end, and start of particles in next cycle
+                                newModule.maxTimeNeeded[i] = maxTime;               // how much time is enough for every single system
+
+                                // remove particle systems that request 0 time
+                                if (found_to_remove)
+                                {
+                                    List<float> temp_list = new List<float>();
+                                    List<ParticleSystem> temp_system_list = new List<ParticleSystem>();
+
+                                    int offset = 0;
+
+                                    for (int j = 0; j < curr_list.Count; j++)
+                                    {
+                                        if (timeRequested[j] > 0.0f)
+                                        {
+                                            temp_list.Add(curr_list[j]);
+                                            temp_system_list.Add(curr_system_list[j]);
+                                            timeRequested[j - offset] = timeRequested[j];
+                                        }
+                                        else
+                                        {
+                                            offset += 1;
+                                        }
+                                    }
+
+                                    newModule.defaultTimeNeeded[i] = temp_list;
+                                    newModule.beforeBarrelFired[i] = temp_system_list;
+
+                                    curr_list = newModule.defaultTimeNeeded[i];
+                                    curr_system_list = newModule.beforeBarrelFired[i];
+                                }
+
+                                // set proper startDelays for remaining PS
+                                for (int j = 0; j < curr_list.Count; j++)
+                                {
+                                    float newDelay = maxTime - timeRequested[j];
+
+                                    ParticleSystem currSystem = curr_system_list[j];
+                                    var main = currSystem.main;
+                                    main.startDelay = newDelay;
+                                    // main.startDelayMultiplier = 1.0f;
+                                }
 
                                 float comparator = __m_ShotCooldown * i;
                                 if (maxTime > comparator)
                                 {
                                     newModule.numStartModifications += 1;
-                                    newModule.adjStartDelay[i] -= comparator;
+                                    newModule.adjStartDelay[i] = comparator;
                                 }
                             }
                         }
@@ -264,35 +356,81 @@ namespace ParticleManager
                     {
                         // should be > 1, else we would have done it in prior case
                         int num_sets = __m_NumCannonBarrels / __m_BurstShotCount;
-                        float grace_time = (__m_ShotCooldown * (__m_BurstShotCount - 1)) + (num_sets * __m_BurstCooldown);
+                        float cycle_time = (__m_ShotCooldown * (__m_BurstShotCount - 1)) + (num_sets * __m_BurstCooldown);
 
-                        // set grace_time as ceiling
+                        // set cycle_time as ceiling
                         for (int i = 0; i < __m_NumCannonBarrels; i++)
                         {
-                            List<float> curr_list = newModule.defaultStartDelay[i];
+                            List<float> curr_list = newModule.defaultTimeNeeded[i];
                             List<ParticleSystem> curr_system_list = newModule.beforeBarrelFired[i];
-
                             float maxTime = 0.0f;
+                            float[] timeRequested = new float[curr_list.Count];
+                            bool found_to_remove = false;
                             for (int j = 0; j < curr_list.Count; j++)
                             {
-                                float maxTimeAvailable = Mathf.Min(curr_list[j], grace_time);
-                                curr_list[j] = grace_time - maxTimeAvailable;
+                                float maxTimeAvailable = Mathf.Min(curr_list[j], cycle_time);
 
                                 var main = curr_system_list[j].main;
-                                main.startDelay = new ParticleSystem.MinMaxCurve(curr_list[j]);
-                                main.startDelayMultiplier = 1.0f;
-
-                                maxTime = Mathf.Max(curr_list[j], maxTime);
+                                timeRequested[j] = maxTimeAvailable - main.startDelay.constant;
+                                if (timeRequested[j] <= 0.0f)
+                                {
+                                    found_to_remove = true;
+                                }
+                                else
+                                {
+                                    maxTime = Mathf.Max(maxTimeAvailable, maxTime);
+                                }
                             }
-                            newModule.adjStartDelay[i] = grace_time - maxTime;
-                            newModule.maxTimeNeeded[i] = maxTime;
+                            // newModule.adjStartDelay[i] = cycle_time - maxTime;
+                            newModule.adjCycleDelay[i] = cycle_time - maxTime;  // how much time between cycle end, and start of particles in next cycle
+                            newModule.maxTimeNeeded[i] = maxTime;               // how much time is enough for every single system
+
+                            // remove particle systems that request 0 time
+                            if (found_to_remove)
+                            {
+                                List<float> temp_list = new List<float>();
+                                List<ParticleSystem> temp_system_list = new List<ParticleSystem>();
+
+                                int offset = 0;
+
+                                for (int j = 0; j < curr_list.Count; j++)
+                                {
+                                    if (timeRequested[j] > 0.0f)
+                                    {
+                                        temp_list.Add(curr_list[j]);
+                                        temp_system_list.Add(curr_system_list[j]);
+                                        timeRequested[j - offset] = timeRequested[j];
+                                    }
+                                    else
+                                    {
+                                        offset += 1;
+                                    }
+                                }
+
+                                newModule.defaultTimeNeeded[i] = temp_list;
+                                newModule.beforeBarrelFired[i] = temp_system_list;
+
+                                curr_list = newModule.defaultTimeNeeded[i];
+                                curr_system_list = newModule.beforeBarrelFired[i];
+                            }
+
+                            // set proper startDelays for remaining PS
+                            for (int j = 0; j < curr_list.Count; j++)
+                            {
+                                float newDelay = maxTime - timeRequested[j];
+
+                                ParticleSystem currSystem = curr_system_list[j];
+                                var main = currSystem.main;
+                                main.startDelay = newDelay;
+                                // main.startDelayMultiplier = 1.0f;
+                            }
 
                             int num_bursts = i / __m_BurstShotCount;
                             float comparator = num_bursts * (__m_BurstCooldown) + __m_ShotCooldown * (i - num_bursts);
                             if (maxTime > comparator)
                             {
                                 newModule.numStartModifications += 1;
-                                newModule.adjStartDelay[i] -= comparator;
+                                newModule.adjStartDelay[i] = comparator;
                             }
                         }
                     }
@@ -302,45 +440,96 @@ namespace ParticleManager
                     {
                         // newModule.dynamicTimeCalc = true;
                         newModule.beforeBarrelFired = null;
-                        newModule.defaultStartDelay = null;
+                        newModule.defaultTimeNeeded = null;
                     }
                 }
                 // Plain-old sequential fire (burst count == 1 is also sequential)
                 else
                 {
-                    float grace_time = __m_ShotCooldown;
+                    float cycle_time = __m_ShotCooldown;
                     if (__m_BurstShotCount == 1)
                     {
-                        grace_time = __m_BurstCooldown;
+                        cycle_time = __m_BurstCooldown;
                     }
-                    grace_time *= __m_NumCannonBarrels;
+                    cycle_time *= __m_NumCannonBarrels;
 
-                    // set grace_time as ceiling
+                    // set cycle_time as ceiling
                     for (int i = 0; i < __m_NumCannonBarrels; i++)
                     {
-                        List<float> curr_list = newModule.defaultStartDelay[i];
+                        List<float> curr_list = newModule.defaultTimeNeeded[i];
                         List<ParticleSystem> curr_system_list = newModule.beforeBarrelFired[i];
-
                         float maxTime = 0.0f;
+                        float[] timeRequested = new float[curr_list.Count];
+                        bool found_to_remove = false;
                         for (int j = 0; j < curr_list.Count; j++)
                         {
-                            float maxTimeAvailable = Mathf.Min(curr_list[j], grace_time);
-                            curr_list[j] = grace_time - maxTimeAvailable;
+                            float maxTimeAvailable = Mathf.Min(curr_list[j], cycle_time);
 
                             var main = curr_system_list[j].main;
-                            main.startDelay = new ParticleSystem.MinMaxCurve(curr_list[j]);
-                            main.startDelayMultiplier = 1.0f;
-
-                            maxTime = Mathf.Max(curr_list[j], maxTime);
+                            timeRequested[j] = maxTimeAvailable - main.startDelay.constant;
+                            if (timeRequested[j] <= 0.0f)
+                            {
+                                found_to_remove = true;
+                            }
+                            else
+                            {
+                                maxTime = Mathf.Max(maxTimeAvailable, maxTime);
+                            }
                         }
-                        newModule.adjStartDelay[i] = grace_time - maxTime;
-                        newModule.maxTimeNeeded[i] = maxTime;
+                        // newModule.adjStartDelay[i] = cycle_time - maxTime;
+                        newModule.adjCycleDelay[i] = cycle_time - maxTime;  // how much time between cycle end, and start of particles in next cycle
+                        newModule.maxTimeNeeded[i] = maxTime;               // how much time is enough for every single system
+
+                        // remove particle systems that request 0 time
+                        if (found_to_remove)
+                        {
+                            List<float> temp_list = new List<float>();
+                            List<ParticleSystem> temp_system_list = new List<ParticleSystem>();
+
+                            int offset = 0;
+
+                            for (int j = 0; j < curr_list.Count; j++)
+                            {
+                                if (timeRequested[j] > 0.0f)
+                                {
+                                    temp_list.Add(curr_list[j]);
+                                    temp_system_list.Add(curr_system_list[j]);
+                                    timeRequested[j - offset] = timeRequested[j];
+                                }
+                                else
+                                {
+                                    offset += 1;
+                                }
+                            }
+
+                            newModule.defaultTimeNeeded[i] = temp_list;
+                            newModule.beforeBarrelFired[i] = temp_system_list;
+
+                            curr_list = newModule.defaultTimeNeeded[i];
+                            curr_system_list = newModule.beforeBarrelFired[i];
+                        }
+
+                        // set proper startDelays for remaining PS
+                        for (int j = 0; j < curr_list.Count; j++)
+                        {
+                            float newDelay = maxTime - timeRequested[j];
+
+                            ParticleSystem currSystem = curr_system_list[j];
+                            var main = currSystem.main;
+                            main.startDelay = newDelay;
+                            Console.WriteLine("<MPM> [OnPool] Assign new startDelay of " + newDelay.ToString() + " s to PS #" + j.ToString() + " of Barrel #" + i.ToString());
+                            // main.startDelayMultiplier = 1.0f;
+                        }
 
                         float comparator = __m_ShotCooldown * i;
+                        if (__m_BurstShotCount == 1)
+                        {
+                            comparator = __m_BurstCooldown * i;
+                        }
                         if (maxTime > comparator)
                         {
                             newModule.numStartModifications += 1;
-                            newModule.adjStartDelay[i] -= comparator;
+                            newModule.adjStartDelay[i] = comparator;
                         }
                     }
                 }
