@@ -1,5 +1,4 @@
-// Original credit for overall model/json goes to Saelem Black
-// this is meant for instructional usage only
+
 {
     "Name":                 "shockwave Cannon",
     "Description":          "A Black Labs weapon built on the HG1 chassis, the Gungnir Railgun was designed from the ground up to compete with naval-class weaponry. Using sheer kinetic force, it can puncture shields and crater the tech inside. Also comes with a laser pointer!",
@@ -1890,37 +1889,37 @@
           {
             "m_system": "/_gimbalBase/_gimbalElev/FX_HE_PlasmaTeeth_Beam/ParticleSystem.",
             "value": 1.5,
-            "CannonBarrel": "/_gimbalBase/_gimbalEleb/_barrel/CannonBarrel.",
+            "CannonBarrel": "/_gimbalBase/_gimbalElev/_barrel/CannonBarrel.",
             "type": "BarrelCharge"
           },
           {
             "m_system": "/_gimbalBase/_gimbalElev/FX_HE_PlasmaTeeth_Beam_copy/ParticleSystem.",
             "value": 1.0,
-            "CannonBarrel": "/_gimbalBase/_gimbalEleb/_barrel/CannonBarrel.",
+            "CannonBarrel": "/_gimbalBase/_gimbalElev/_barrel/CannonBarrel.",
             "type": "BarrelCharge"
           },
           {
             "m_system": "/_gimbalBase/_gimbalElev/FX_HE_PlasmaTeeth_Beam_copy_copy/ParticleSystem.",
             "value": 0.5,
-            "CannonBarrel": "/_gimbalBase/_gimbalEleb/_barrel/CannonBarrel.",
+            "CannonBarrel": "/_gimbalBase/_gimbalElev/_barrel/CannonBarrel.",
             "type": "BarrelCharge"
           },
           {
             "m_system": "/_gimbalBase/_gimbalElev/FX_HE_PlasmaTeeth_Beam_copy_copy_copy/ParticleSystem.",
             "value": 1.2,
-            "CannonBarrel": "/_gimbalBase/_gimbalEleb/_barrel/CannonBarrel.",
+            "CannonBarrel": "/_gimbalBase/_gimbalElev/_barrel/CannonBarrel.",
             "type": "BarrelCharge"
           },
           {
             "m_system": "/_gimbalBase/_gimbalElev/FX_HE_PlasmaTeeth_Beam_copy_copy_copy_copy/ParticleSystem.",
             "value": 0.7,
-            "CannonBarrel": "/_gimbalBase/_gimbalEleb/_barrel/CannonBarrel.",
+            "CannonBarrel": "/_gimbalBase/_gimbalElev/_barrel/CannonBarrel.",
             "type": "BarrelCharge"
           },
           {
             "m_system": "/_gimbalBase/_gimbalElev/FX_HE_PlasmaTeeth_Beam_copy_copy_copy_copy_copy/ParticleSystem.",
             "value": 0.2,
-            "CannonBarrel": "/_gimbalBase/_gimbalEleb/_barrel/CannonBarrel.",
+            "CannonBarrel": "/_gimbalBase/_gimbalElev/_barrel/CannonBarrel.",
             "type": "BarrelCharge"
           }
         ],
