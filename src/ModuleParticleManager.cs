@@ -849,7 +849,7 @@ namespace ParticleManager
             }
         }
 
-        private void DebugPrint(string text)
+        public void DebugPrint(string text)
         {
             if (this.Debug)
             {
