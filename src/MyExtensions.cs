@@ -24,11 +24,12 @@ namespace ParticleManager
 
                     float to_set = newModule.PrepareFiring(prepareFiring, __result, __m_NextBarrelToFire);
                     
-                    if (to_set > 0.0)
+                    if (to_set >= 0.0)
                     {
                         Console.WriteLine("Attempting to set shotTimer to: " + to_set.ToString());
                         m_ShotTimer.SetValue(__instance, to_set);
-                        __result = false;
+
+                        if (to_set > 0.0) __result = false;
                     }
                 }
             }
@@ -182,7 +183,7 @@ namespace ParticleManager
             float cycle_time = m_ShotCooldown;
             if (m_BurstShotCount > 0)
             {
-                if (m_NumCannonBarrels != m_BurstShotCount)
+                if (m_NumCannonBarrels < m_BurstShotCount)
                 {
                     // this is dynamic cooldown
                     // cycle_time = Mathf.Min(cycle_time, m_BurstCooldown);
@@ -198,6 +199,7 @@ namespace ParticleManager
                     cycle_time = m_BurstCooldown;
                 }
             }
+            newModule.DebugPrint("<NPM> [OnPoolAllAtOnce] cycle_time calculated at: " + cycle_time.ToString());
 
             for (int i = 0; i < m_NumCannonBarrels; i++)
             {
@@ -209,9 +211,10 @@ namespace ParticleManager
                 for (int j = 0; j < curr_list.Count; j++)
                 {
                     float maxTimeAvailable = Mathf.Min(curr_list[j], cycle_time);
+                    newModule.DebugPrint("<MPM> [OnPoolAllAtOnce] Requested play time of " + maxTimeAvailable.ToString() + " s to PS #" + j.ToString() + " of Barrel #" + i.ToString());
 
                     var main = curr_system_list[j].main;
-                    timeRequested[j] = maxTimeAvailable - main.startDelay.constant;
+                    timeRequested[j] = maxTimeAvailable;
                     if (timeRequested[j] <= 0.0f)
                     {
                         found_to_remove = true;
@@ -264,6 +267,7 @@ namespace ParticleManager
                     main.startDelay = newDelay;
                     // main.startDelayMultiplier = 1.0f;
                     newModule.DebugPrint("<MPM> [OnPool] Assign new startDelay of " + newDelay.ToString() + " s to PS #" + j.ToString() + " of Barrel #" + i.ToString());
+                    newModule.defaultTimeNeeded[i][j] = newDelay;
                 }
             }
         }
@@ -302,6 +306,7 @@ namespace ParticleManager
                 {
                     // grace time is time to go through, + burst cooldown
                     float cycle_time = (m_ShotCooldown * (m_BurstShotCount - 1)) + m_BurstCooldown;
+                    newModule.DebugPrint("<NPM> [OnPoolBurst] cycle_time calculated at: " + cycle_time.ToString());
 
                     // set cycle_time as ceiling
                     for (int i = 0; i < m_NumCannonBarrels; i++)
@@ -314,9 +319,10 @@ namespace ParticleManager
                         for (int j = 0; j < curr_list.Count; j++)
                         {
                             float maxTimeAvailable = Mathf.Min(curr_list[j], cycle_time);
+                            newModule.DebugPrint("<MPM> [OnPoolBurst] Requested play time of " + maxTimeAvailable.ToString() + " s to PS #" + j.ToString() + " of Barrel #" + i.ToString());
 
                             var main = curr_system_list[j].main;
-                            timeRequested[j] = maxTimeAvailable - main.startDelay.constant;
+                            timeRequested[j] = maxTimeAvailable;
                             if (timeRequested[j] <= 0.0f)
                             {
                                 found_to_remove = true;
@@ -368,7 +374,8 @@ namespace ParticleManager
                             var main = currSystem.main;
                             main.startDelay = newDelay;
                             // main.startDelayMultiplier = 1.0f;
-                            newModule.DebugPrint("<MPM> [OnPool] Assign new startDelay of " + newDelay.ToString() + " s to PS #" + j.ToString() + " of Barrel #" + i.ToString());
+                            newModule.DebugPrint("<MPM> [OnPoolBurst] Assign new startDelay of " + newDelay.ToString() + " s to PS #" + j.ToString() + " of Barrel #" + i.ToString());
+                            newModule.defaultTimeNeeded[i][j] = newDelay;
                         }
 
                         float comparator = m_ShotCooldown * i;
@@ -398,9 +405,10 @@ namespace ParticleManager
                     for (int j = 0; j < curr_list.Count; j++)
                     {
                         float maxTimeAvailable = Mathf.Min(curr_list[j], cycle_time);
+                        newModule.DebugPrint("<MPM> [OnPool] Requested play time of " + maxTimeAvailable.ToString() + " s to PS #" + j.ToString() + " of Barrel #" + i.ToString());
 
                         var main = curr_system_list[j].main;
-                        timeRequested[j] = maxTimeAvailable - main.startDelay.constant;
+                        timeRequested[j] = maxTimeAvailable;
                         if (timeRequested[j] <= 0.0f)
                         {
                             found_to_remove = true;
@@ -453,6 +461,7 @@ namespace ParticleManager
                         main.startDelay = newDelay;
                         // main.startDelayMultiplier = 1.0f;
                         newModule.DebugPrint("<MPM> [OnPool] Assign new startDelay of " + newDelay.ToString() + " s to PS #" + j.ToString() + " of Barrel #" + i.ToString());
+                        newModule.defaultTimeNeeded[i][j] = newDelay;
                     }
 
                     int num_bursts = i / m_BurstShotCount;
@@ -486,6 +495,8 @@ namespace ParticleManager
             }
             cycle_time *= m_NumCannonBarrels;
 
+            newModule.DebugPrint("<NPM> [OnPoolSequential] cycle_time calculated at: " + cycle_time.ToString());
+
             // set cycle_time as ceiling
             for (int i = 0; i < m_NumCannonBarrels; i++)
             {
@@ -497,9 +508,10 @@ namespace ParticleManager
                 for (int j = 0; j < curr_list.Count; j++)
                 {
                     float maxTimeAvailable = Mathf.Min(curr_list[j], cycle_time);
+                    newModule.DebugPrint("<MPM> [OnPoolSequential] Requested play time of " + maxTimeAvailable.ToString() + " s to PS #" + j.ToString() + " of Barrel #" + i.ToString());
 
                     var main = curr_system_list[j].main;
-                    timeRequested[j] = maxTimeAvailable - main.startDelay.constant;
+                    timeRequested[j] = maxTimeAvailable;
                     if (timeRequested[j] <= 0.0f)
                     {
                         found_to_remove = true;
@@ -550,7 +562,8 @@ namespace ParticleManager
                     ParticleSystem currSystem = curr_system_list[j];
                     var main = currSystem.main;
                     main.startDelay = newDelay;
-                    newModule.DebugPrint("<MPM> [OnPool] Assign new startDelay of " + newDelay.ToString() + " s to PS #" + j.ToString() + " of Barrel #" + i.ToString());
+                    newModule.DebugPrint("<MPM> [OnPoolSequential] Assign new startDelay of " + newDelay.ToString() + " s to PS #" + j.ToString() + " of Barrel #" + i.ToString());
+                    newModule.defaultTimeNeeded[i][j] = newDelay;
                     // main.startDelayMultiplier = 1.0f;
                 }
 

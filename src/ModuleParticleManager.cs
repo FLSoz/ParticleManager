@@ -29,7 +29,7 @@ namespace ParticleManager
         // sets m_ShotTimer to designated time when first pressing space
         // WARNING: will override particle system start delay to be the same time
         public List<List<ParticleSystem>> beforeBarrelFired;
-        public List<List<float>> defaultTimeNeeded;
+        public List<List<float>> defaultTimeNeeded;     // encodes time total for particle effect on input to OnPool. On output, encodes the default start Delays
         public float[] maxTimeNeeded;
         public float[] adjStartDelay;
         public float[] adjCycleDelay;
@@ -163,7 +163,7 @@ namespace ParticleManager
 
         // should handle spinup times (looks like not possible rip)
         public float PrepareFiring(bool fireOrder, bool result, int m_NextBarrelToFire) {
-            float retval = 0.0f;
+            float retval = -1.0f;
             if (this.lastFireOrder != fireOrder) {
                 this.DebugPrint("<MPM> PrepareFiring registered command state change");
                 // toggled on, weapon now wants to fire
@@ -181,6 +181,10 @@ namespace ParticleManager
                         this.playSelectedParticles(this.onWeaponCharge, "  ", "<MPM> Attempting to play overall weapon charge particles");
 
                         retval = this.maxWeaponChargeTime;
+                    }
+                    else
+                    {
+                        retval = 0.0f;
                     }
                 }
                 // toggled off, weapon now wants to stop firing, stop playing particles
@@ -202,6 +206,9 @@ namespace ParticleManager
                             this.stopSelectedParticles(this.beforeBarrelFired[i],"  ", "<MPM> Attempting to stop barrel #" + i.ToString() + " particles");
                         }
                     }
+
+                    // reset cooldown
+                    retval = 0.0f;
                 }
 
                 // regardless of change, to change means we reset these params
@@ -235,7 +242,7 @@ namespace ParticleManager
                 else if (this.beforeBarrelFired != null)
                 {
                     // If need to correct stuff, do everything here
-                    /* if (this.needToCorrectDelay > 0)
+                    if (this.needToCorrectDelay > 0)
                     {
                         this.ProcessWeaponReset(m_NextBarrelToFire);
                         this.needToCorrectDelay -= 1;
@@ -244,10 +251,10 @@ namespace ParticleManager
                     else
                     {
                         this.ProcessBarrelFire(m_NextBarrelToFire);
-                    } */
+                    }
 
                     // no longer modifying weapon startDelays means 
-                    this.ProcessBarrelFire(m_NextBarrelToFire);
+                    // this.ProcessBarrelFire(m_NextBarrelToFire);
                 }
             }
 
@@ -270,27 +277,25 @@ namespace ParticleManager
                         List<ParticleSystem> systemList = this.beforeBarrelFired[i];
 
                         // no longer do this, since all startDelays are as if do right away, delay time is replaced with Coroutine execution delay
-                        /* if (systemList != null)
+                        if (systemList != null)
                         {
                             for (int j = 0; j < systemList.Count; j++)
                             {
-                                if (this.adjStartDelay[i] != 0.0f)
-                                {
-                                    var main = systemList[j].main;
-                                    main.startDelay = this.defaultTimeNeeded[i][j] - this.adjStartDelay[i];
-                                }
+                                var main = systemList[j].main;
+                                main.startDelay = this.defaultTimeNeeded[i][j] + this.adjStartDelay[i];
                             }
-                        } */
+                        }
                         this.playSelectedParticles(systemList, "    ", "<MPM> Attempting to play Barrel #" + i.ToString() + " particles");
                     }
                     this.needToCorrectDelay = 1;
                 }
-                // else, need only play proper one
+                // else, need only play proper one(s)
                 else
                 {
                     this.DebugPrint("  <MPM> Attempt to play particle effect of first shot, need to set total of " + this.numStartModifications.ToString() + "shots");
                     int curr_barrel = m_NextBarrelToFire;
                     int m_NumCannonBarrels = this.maxTimeNeeded.Length;
+                    int offset = 0;
                     for (int i = 0; i < this.numStartModifications; i++)
                     {
                         // no longer do this, since all startDelays are as if do right away, delay time is replaced with Coroutine execution delay
@@ -310,16 +315,26 @@ namespace ParticleManager
                                 }
                             }
                         } */
-                        float adjDelay = this.adjStartDelay[curr_barrel];
-                        if (adjDelay > 0.0f)
+
+                        List<ParticleSystem> systemList = this.beforeBarrelFired[curr_barrel];
+                        if (systemList != null)
                         {
-                            StartCoroutine(this.playSelectedParticlesWithDelay(this.beforeBarrelFired[curr_barrel], "    ", "<MPM> Attempting to play Barrel #" + curr_barrel.ToString() + " particles", this.adjStartDelay[curr_barrel]));
+                            int tarInd = i + offset;
+                            int loop = tarInd / m_NumCannonBarrels;
+                            tarInd = tarInd % m_NumCannonBarrels;
+                            for (int j = 0; j < systemList.Count; j++)
+                            {
+                                var main = systemList[j].main;
+                                main.startDelay = this.defaultTimeNeeded[curr_barrel][j] + this.adjStartDelay[tarInd];
+
+                                var main2 = systemList[j].main;
+                                this.DebugPrint("    <MPM> Detected startDelay: " + main2.startDelay.constant.ToString());
+                            }
                         }
-                        else
-                        {
-                            this.playSelectedParticles(this.beforeBarrelFired[curr_barrel], "    ", "<MPM> Attempting to play Barrel #" + curr_barrel.ToString() + " particles");
-                        }
-                        curr_barrel = curr_barrel == m_NumCannonBarrels - 1 ? 0 : m_NextBarrelToFire + 1;
+                        // StartCoroutine(this.playSelectedParticlesWithDelay(this.beforeBarrelFired[curr_barrel], "    ", "<MPM> Attempting to play Barrel #" + curr_barrel.ToString() + " particles", this.adjStartDelay[curr_barrel]));
+
+                        this.playSelectedParticles(systemList, "    ", "<MPM> Attempting to play Barrel #" + curr_barrel.ToString() + " particles");
+                        curr_barrel = curr_barrel == m_NumCannonBarrels - 1 ? 0 : curr_barrel + 1;
                     }
 
                     // either fired all barrels, which ignores this counter (used as bool), or fired only one barrel
@@ -346,11 +361,8 @@ namespace ParticleManager
                         this.stopSelectedParticles(systemList, "    ", "<MPM> Attempting to stop Barrel #" + i.ToString() + " particles");
                         for (int j = 0; j < systemList.Count; j++)
                         {
-                            if (this.adjStartDelay[i] != 0.0f)
-                            {
-                                var main = systemList[j].main;
-                                main.startDelay = this.defaultTimeNeeded[i][j];
-                            }
+                            var main = systemList[j].main;
+                            main.startDelay = this.defaultTimeNeeded[i][j] + this.adjCycleDelay[i];
                         }
                         this.playSelectedParticles(systemList, "    ", "<MPM> Attempting to cycle Barrel #" + i.ToString() + " particles");
                     }
@@ -371,28 +383,27 @@ namespace ParticleManager
                     else
                     { */
                         // Stop particles from playing on this PS first
-                        this.stopSelectedParticles(systemList, "    ", "<MPM> Attempting to stop Barrel #" + m_NextBarrelToFire.ToString() + " particles");
+                    this.stopSelectedParticles(systemList, "    ", "<MPM> Attempting to stop Barrel #" + m_NextBarrelToFire.ToString() + " particles");
                     // }
 
                     // fix it
                     for (int j = 0; j < systemList.Count; j++)
                     {
-                        if (this.adjStartDelay[m_NextBarrelToFire] != 0.0f)
-                        {
-                            var main = systemList[j].main;
-                            main.startDelay = this.defaultTimeNeeded[m_NextBarrelToFire][j];
+                        var main = systemList[j].main;
+                        main.startDelay = this.defaultTimeNeeded[m_NextBarrelToFire][j] + this.adjCycleDelay[m_NextBarrelToFire];
 
-                            var main2 = systemList[j].main;
-                            this.DebugPrint("    <MPM> Detected startDelay: " + main2.startDelay.constant.ToString());
-                        }
+                        var main2 = systemList[j].main;
+                        this.DebugPrint("    <MPM> Detected startDelay: " + main2.startDelay.constant.ToString());
                     }
+
+                    this.playSelectedParticles(systemList, "    ", "<MPM> Attempting to play Barrel #" + m_NextBarrelToFire.ToString() + " particles");
                 }
                 int m_NumCannonBarrels = this.maxTimeNeeded.Length;
                 int nextBarrelToPlay = m_NextBarrelToFire == m_NumCannonBarrels - 1 ? 0 : m_NextBarrelToFire + 1;
 
-                var main3 = this.beforeBarrelFired[nextBarrelToPlay][0].main;
-                this.DebugPrint("    <MPM> Detected startDelay: " + main3.startDelay.constant.ToString());
-                this.playSelectedParticles(this.beforeBarrelFired[nextBarrelToPlay], "    ", "<MPM> Attempting to play Barrel #" + nextBarrelToPlay.ToString() + " particles");
+                // var main3 = this.beforeBarrelFired[nextBarrelToPlay][0].main;
+                // this.DebugPrint("    <MPM> Detected startDelay: " + main3.startDelay.constant.ToString());
+                // this.playSelectedParticles(this.beforeBarrelFired[nextBarrelToPlay], "    ", "<MPM> Attempting to play Barrel #" + nextBarrelToPlay.ToString() + " particles");
             }
         }
 
@@ -409,14 +420,15 @@ namespace ParticleManager
                     List<ParticleSystem> systemList = this.beforeBarrelFired[i];
                     this.stopSelectedParticles(systemList, "      ", "<MPM> Attempting to stop Barrel #" + i.ToString() + " particles");
 
-                    if (this.adjCycleDelay[0] > 0.0f)
+                    /* if (this.adjCycleDelay[0] > 0.0f)
                     {
                         StartCoroutine(this.playSelectedParticlesWithDelay(systemList, "      ", "<MPM> Attempting to play Barrel #" + i.ToString() + " particles", this.adjCycleDelay[0]));
                     }
                     else
                     {
                         this.playSelectedParticles(systemList, "      ", "<MPM> Attempting to play Barrel #" + i.ToString() + " particles");
-                    }
+                    } */
+                    this.playSelectedParticles(systemList, "      ", "<MPM> Attempting to play Barrel #" + i.ToString() + " particles");
                 }
             }
             // don't care about burst count after it's been corrected
@@ -427,16 +439,17 @@ namespace ParticleManager
                 this.DebugPrint("    <MPM> Attempting to cycle Barrel #" + m_NextBarrelToFire.ToString() + " particles");
                 this.stopSelectedParticles(this.beforeBarrelFired[m_NextBarrelToFire], "      ", "<MPM> Attempting to stop Barrel #" + m_NextBarrelToFire.ToString() + " particles");
 
-                int m_NumCannonBarrels = this.maxTimeNeeded.Length;
-                int nextBarrelToPlay = m_NextBarrelToFire == m_NumCannonBarrels - 1 ? 0 : m_NextBarrelToFire + 1;
+                // int m_NumCannonBarrels = this.maxTimeNeeded.Length;
+                // int nextBarrelToPlay = m_NextBarrelToFire == m_NumCannonBarrels - 1 ? 0 : m_NextBarrelToFire + 1;
 
-                if (this.adjCycleDelay[nextBarrelToPlay] > 0.0f) {
+                /* if (this.adjCycleDelay[nextBarrelToPlay] > 0.0f) {
                     StartCoroutine(this.playSelectedParticlesWithDelay(this.beforeBarrelFired[nextBarrelToPlay], "      ", "<MPM> Attempting to play Barrel #" + nextBarrelToPlay.ToString() + " particles", this.adjCycleDelay[nextBarrelToPlay]));
                 }
                 else
                 {
                     this.playSelectedParticles(this.beforeBarrelFired[nextBarrelToPlay], "      ", "<MPM> Attempting to play Barrel #" + nextBarrelToPlay.ToString() + " particles");
-                }
+                } */
+                this.playSelectedParticles(this.beforeBarrelFired[m_NextBarrelToFire], "      ", "<MPM> Attempting to play Barrel #" + m_NextBarrelToFire.ToString() + " particles");
             }
         }
 
