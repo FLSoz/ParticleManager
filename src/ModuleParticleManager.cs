@@ -87,6 +87,7 @@ namespace ParticleManager
             this.onAnchor = new List<ParticleSystem>();
 
             this.onWeaponCharge = new List<ParticleSystem>();
+            this.onWeaponFiring = new List<ParticleSystem>();
 
             this.initBeforeBarrelFired = new List<ParticleSystem>();
             this.initTimeBeforeBarrelFired = new List<float>();
