@@ -105,7 +105,7 @@ Currently, only Attach, Anchor, WeaponFiring, and WeaponCharge are operational.
 ```
 
 - WeaponCharge will play a particle system from the moment a weapon tries to fire, till the time it fires its first shot. If the provided time for how long the particle system will play is longer than the time normally spent before the first shot is fire (i.e. spinner spinup), the ParticleManager will artificially inflate the time until the first shot is fired. (spinup times are unaffected)
-Nota Bene: all particle systems will stop playing when the parent block is removed from the tech
+
 ```json
 {
   "m_system": "/_gimbalBase/_gimbalElev/fx_Lightning/ParticleSystem.",
@@ -114,4 +114,22 @@ Nota Bene: all particle systems will stop playing when the parent block is remov
 }
 ```
 
-the fields CannonBarrel and value correspond to highly experimental functionality tied to weapon cooldowns. I make no promises about your functionality then.
+- BarrelCharge will play a particle system for the requested time value provided, right before the barrel it's attached to fires. It will delay the first shot from firing until the first barrel has been charged
+```json
+{
+  "m_system": "/_gimbalBase/_gimbalElev/FX_HE_PlasmaTeeth_Beam/ParticleSystem.",
+  "value": 1.5,
+  "CannonBarrel": "/_gimbalBase/_gimbalElev/_barrel_L/CannonBarrel.",
+  "type": "BarrelCharge"
+},
+```
+Important things to note about BarrelCharge:
+- unlike WeaponCharge, it requires a CannonBarrel reference. If one is not provided, it will automatically assign it to barrel #0, whichever barrel that happens to be
+- like Weaponcharge, "value" indicates exactly how long you want the designated ParticleSystem to play before the barrel will fire
+- you are fully able to give a value that's arbitarily large, but the manager *will* forcibly truncate it to at max the cycle time (the time before said barrel will fire again)
+- ^ Note how it truncates to cycle time, not shot reload. that's because if multiple barrel charge animations need to be playing at the same time, the manager will handle it, and play then as appropriate
+- So far, I've only tested with ParticleSystems set on loop=true. I assume it works with one-off systems, but haven't explicitly tested them yet
+- *DO NOT SET ParticleSystem.main.prewarm = true*, or the particles will not display (if loop=true)
+
+
+Nota Bene: all particle systems will stop playing when the parent block is removed from the tech
