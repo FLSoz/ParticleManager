@@ -287,8 +287,9 @@ namespace ParticleManager
                     // if one barrel was part of burst, we now must handle it
                     this.needToCorrectDelay = this.numStartModifications;
                 }
+                return this.maxTimeNeeded[m_NextBarrelToFire];
             }
-            return this.maxTimeNeeded[m_NextBarrelToFire];
+            return 0.0f;
         }
 
         // handle resetting to factory condition. guarantee needToCorrectDelay has correct number of things
@@ -439,7 +440,7 @@ namespace ParticleManager
 
         private void OnSpawn() {
             this.DebugPrint("<ModuleParticleManager> OnSpawn");
-            this.StopAllParticles();
+            this.StopAndClearAllParticles();
         }
 
         private void OnPool()
@@ -563,6 +564,59 @@ namespace ParticleManager
                     {
                         this.DebugPrint("      <ModuleParticleManager> Found a PS");
                         system.Stop();
+                    }
+                }
+            }
+            return;
+        }
+
+        private void StopAndClearAllParticles()
+        {
+            this.DebugPrint("  <ModuleParticleManager> Request Stopping all Particles");
+            this.DebugPrint("    <ModuleParticleManager> Stopping OnblockAttach");
+            foreach (ParticleSystem system in this.onBlockAttach)
+            {
+                this.DebugPrint("      <ModuleParticleManager> Found a PS");
+                system.Stop();
+                system.Clear();
+            }
+            this.DebugPrint("    <ModuleParticleManager> Stopping Onanchor");
+            foreach (ParticleSystem system in this.onAnchor)
+            {
+                this.DebugPrint("      <ModuleParticleManager> Found a PS");
+                system.Stop();
+                system.Clear();
+            }
+            this.DebugPrint("    <ModuleParticleManager> Stopping OnWeaponCharge");
+            if (this.onWeaponCharge != null)
+            {
+                foreach (ParticleSystem system in this.onWeaponCharge)
+                {
+                    this.DebugPrint("      <ModuleParticleManager> Found a PS");
+                    system.Stop();
+                    system.Clear();
+                }
+            }
+            this.DebugPrint("    <ModuleParticleManager> Stopping OnWeaponFiring");
+            if (this.onWeaponFiring != null)
+            {
+                foreach (ParticleSystem system in this.onWeaponFiring)
+                {
+                    this.DebugPrint("      <ModuleParticleManager> Found a PS");
+                    system.Stop();
+                    system.Clear();
+                }
+            }
+            this.DebugPrint("    <ModuleParticleManager> Stopping beforeBarrelFired");
+            if (this.beforeBarrelFired != null)
+            {
+                foreach (List<ParticleSystem> system_list in this.beforeBarrelFired)
+                {
+                    foreach (ParticleSystem system in system_list)
+                    {
+                        this.DebugPrint("      <ModuleParticleManager> Found a PS");
+                        system.Stop();
+                        system.Clear();
                     }
                 }
             }
