@@ -117,6 +117,8 @@ namespace ParticleManager
                     main.stopAction = ParticleSystemStopAction.None;
                     main.cullingMode = ParticleSystemCullingMode.AlwaysSimulate;
 
+                    var emission = system.emission;
+
                     float r_value = metadata.value;
                     if (type == MetadataType.Attach)
                     {
