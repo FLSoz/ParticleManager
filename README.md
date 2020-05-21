@@ -1,5 +1,10 @@
 # ParticleManager
 
+ParticleSystem Demos using the Manager have been uploaded under the ParticleDemos subfolder.
+
+The "Elvish Ring NFI" and "Temphis" fonts were used to create texture sheets that may appear in said demos
+
+
 Usage:
 
 Add "ParticleManager.ModuleParticleManager" under root layer (deserializer)
