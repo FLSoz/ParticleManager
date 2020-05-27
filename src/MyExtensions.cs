@@ -138,6 +138,10 @@ namespace ParticleManager
                 }
 
                 // align CannonBarrel arrays. If no effects are present and tied to it, end immediately, we don't care
+                if (__m_FireControlMode == ModuleWeaponGun.FireControlMode.AllAtOnce)
+                {
+                    newModule.AllAtOnce = true;
+                }
                 if (!newModule.AlignCannonBarrels(__m_CannonBarrels)) return;
 
                 // since we want good charge timing, no variance is allowed

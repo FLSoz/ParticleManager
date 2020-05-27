@@ -30,6 +30,7 @@ namespace ParticleManager
         WeaponCharge = 2,
         BarrelCharge = 3,
         WeaponFiring = 4,
+        BarrelFired = 5,
         None = 6
     }
 }

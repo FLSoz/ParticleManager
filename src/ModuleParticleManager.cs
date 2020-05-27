@@ -25,6 +25,9 @@ namespace ParticleManager
         public List<ParticleSystem> onWeaponCharge;
         public float maxWeaponChargeTime = 0.0f;
 
+        // For one-off directly after weapon fires
+        public List<List<ParticleSystem>> onBarrelFired;
+
         // Pair of arrs determine how far ahead of weapon firing it will play effects.
         // sets m_ShotTimer to designated time when first pressing space
         // WARNING: will override particle system start delay to be the same time
@@ -36,6 +39,9 @@ namespace ParticleManager
         public List<ParticleSystem> initBeforeBarrelFired;
         public List<float> initTimeBeforeBarrelFired;
         public List<CannonBarrel> initCannonBarrelList;
+
+        public List<ParticleSystem> initOnBarrelFired;
+        public List<CannonBarrel> initCannonBarrelFiredList;
 
         public ModuleWeaponGun m_ModuleWeaponGun;
         public CannonBarrel[] m_CannonBarrels;
@@ -97,6 +103,9 @@ namespace ParticleManager
             this.initTimeBeforeBarrelFired = new List<float>();
             this.initCannonBarrelList = new List<CannonBarrel>();
 
+            this.initOnBarrelFired = new List<ParticleSystem>();
+            this.initCannonBarrelFiredList = new List<CannonBarrel>();
+
             this.DebugPrint("<MPM> Initialization initialization finished");
             this.DebugPrint("<MPM> Input Size: " + this.Input.Length.ToString());
             for (int i = 0; i < this.Input.Length; i++)
@@ -149,6 +158,11 @@ namespace ParticleManager
                         this.initBeforeBarrelFired.Add(system);
                         this.initTimeBeforeBarrelFired.Add(r_value);
                         this.initCannonBarrelList.Add(metadata.CannonBarrel);
+                    }
+                    else if (type == MetadataType.BarrelFired)
+                    {
+                        this.initOnBarrelFired.Add(system);
+                        this.initCannonBarrelFiredList.Add(metadata.CannonBarrel);
                     }
                     else
                     {
@@ -260,6 +274,20 @@ namespace ParticleManager
                 }
             }
 
+            if (retval <= 0.0f)
+            {
+                if (this.AllAtOnce)
+                {
+                    for (int i = 0; i < this.onBarrelFired.Count; i++)
+                    {
+                        this.playSelectedParticles(this.onBarrelFired[i], "", "<MPM> Firing onBarrelFired stuffs");
+                    }
+                }
+                else
+                {
+                    this.playSelectedParticles(this.onBarrelFired[m_NextBarrelToFire], "", "<MPM> Firing onBarrelFired stuffs");
+                }
+            }
             return retval;
         }
 
@@ -461,6 +489,40 @@ namespace ParticleManager
         public bool AlignCannonBarrels(CannonBarrel[] m_CannonBarrels)
         {
             this.DebugPrint("<MPM> AlignCannonBarrels");
+            if (this.initOnBarrelFired != null && this.initOnBarrelFired.Count > 0)
+            {
+                this.onBarrelFired = new List<List<ParticleSystem>>();
+                this.onBarrelFired.Add(new List<ParticleSystem>());
+
+                // initialize the structures
+                for (int i = 1; i < m_CannonBarrels.Length; i++)
+                {
+                    this.onBarrelFired.Add(new List<ParticleSystem>());
+                }
+
+                for (int i = 0; i < this.initOnBarrelFired.Count; i++)
+                {
+                    CannonBarrel target_barrel = this.initCannonBarrelFiredList[i];
+                    bool match = false;
+
+                    for (int j = 0; j < m_CannonBarrels.Length; j++)
+                    {
+                        if (target_barrel == m_CannonBarrels[j])
+                        {
+                            this.DebugPrint("  entry [" + i.ToString() + "] has matched to barrel <" + j.ToString() + ">");
+                            this.onBarrelFired[j].Add(this.initOnBarrelFired[i]);
+                            this.DebugPrint("  dump1");
+                            match = true;
+                            break;
+                        }
+                    }
+                    if (!match)
+                    {
+                        this.onBarrelFired[0].Add(this.initOnBarrelFired[i]);
+                        this.DebugPrint("  dump1");
+                    }
+                }
+            }
 
             if (this.initBeforeBarrelFired != null && this.initBeforeBarrelFired.Count > 0) {
                 this.beforeBarrelFired = new List<List<ParticleSystem>>();
@@ -612,68 +674,28 @@ namespace ParticleManager
 
         private void StopAllParticles()
         {
-            String prefix = "      ";
-            this.DebugPrint("  <MPM> Request Stopping all Particles");
-            this.DebugPrint("    <MPM> Stopping OnblockAttach");
-            foreach (ParticleSystem system in this.onBlockAttach)
+            this.DebugPrint("  <MPM> Request Stopping all ParticleSystems");
+
+            this.stopSelectedParticles(this.onBlockAttach, "    ", "<MPM> Stopping OnBlockAttach");
+            this.stopSelectedParticles(this.onAnchor, "    ", "<MPM> Stopping OnAnchor");
+            this.stopSelectedParticles(this.onWeaponCharge, "    ", "<MPM> Stopping OnWeaponCharge");
+            this.stopSelectedParticles(this.onWeaponFiring, "    ", "<MPM> Stopping OnWeaponFiring");
+
+            this.DebugPrint("    <MPM> Stopping onBarrelFired");
+            if (this.onBarrelFired != null)
             {
-                this.DebugPrint("      <MPM> Found a PS");
-                if (system.isPlaying)
+                foreach (List<ParticleSystem> system_list in this.onBarrelFired)
                 {
-                    system.Stop(true);
-                    this.SanityCheckPS(prefix, system);
+                    this.stopSelectedParticles(system_list, "      ", "<MPM> Stopping SystemList in Barrels");
                 }
             }
-            this.DebugPrint("    <MPM> Stopping Onanchor");
-            foreach (ParticleSystem system in this.onAnchor)
-            {
-                this.DebugPrint("      <MPM> Found a PS");
-                if (system.isPlaying)
-                {
-                    system.Stop(true);
-                    this.SanityCheckPS(prefix, system);
-                }
-            }
-            this.DebugPrint("    <MPM> Stopping OnWeaponCharge");
-            if (this.onWeaponCharge != null)
-            {
-                foreach (ParticleSystem system in this.onWeaponCharge)
-                {
-                    this.DebugPrint("      <MPM> Found a PS");
-                    if (system.isPlaying)
-                    {
-                        system.Stop(true);
-                        this.SanityCheckPS(prefix, system);
-                    }
-                }
-            }
-            this.DebugPrint("    <MPM> Stopping OnWeaponFiring");
-            if (this.onWeaponFiring != null)
-            {
-                foreach (ParticleSystem system in this.onWeaponFiring)
-                {
-                    this.DebugPrint("      <MPM> Found a PS");
-                    if (system.isPlaying)
-                    {
-                        system.Stop(true);
-                        this.SanityCheckPS(prefix, system);
-                    }
-                }
-            }
+
             this.DebugPrint("    <MPM> Stopping beforeBarrelFired");
             if (this.beforeBarrelFired != null)
             {
                 foreach (List<ParticleSystem> system_list in this.beforeBarrelFired)
                 {
-                    foreach (ParticleSystem system in system_list)
-                    {
-                        this.DebugPrint("      <MPM> Found a PS");
-                        if (system.isPlaying)
-                        {
-                            system.Stop(true);
-                            this.SanityCheckPS(prefix, system);
-                        }
-                    }
+                    this.stopSelectedParticles(system_list, "      ", "<MPM> Stopping SystemList in Barrels");
                 }
             }
             return;
@@ -681,73 +703,28 @@ namespace ParticleManager
 
         private void StopAndClearAllParticles()
         {
-            String prefix = "      ";
-            this.DebugPrint("  <MPM> Request Stopping all Particles");
-            this.DebugPrint("    <MPM> Stopping OnblockAttach");
-            foreach (ParticleSystem system in this.onBlockAttach)
+            this.DebugPrint("  <MPM> Request Stopping all ParticleSystems");
+
+            this.stopAndClearSelectedParticles(this.onBlockAttach, "    ", "<MPM> Stopping OnBlockAttach");
+            this.stopAndClearSelectedParticles(this.onAnchor, "    ", "<MPM> Stopping OnAnchor");
+            this.stopAndClearSelectedParticles(this.onWeaponCharge, "    ", "<MPM> Stopping OnWeaponCharge");
+            this.stopAndClearSelectedParticles(this.onWeaponFiring, "    ", "<MPM> Stopping OnWeaponFiring");
+
+            this.DebugPrint("    <MPM> Stopping onBarrelFired");
+            if (this.onBarrelFired != null)
             {
-                this.DebugPrint("      <MPM> Found a PS");
-                if (system.isPlaying)
+                foreach (List<ParticleSystem> system_list in this.onBarrelFired)
                 {
-                    system.Stop(true);
-                    system.Clear(true);
-                    this.SanityCheckPS(prefix, system);
+                    this.stopAndClearSelectedParticles(system_list, "      ", "<MPM> Stopping SystemList in Barrels");
                 }
             }
-            this.DebugPrint("    <MPM> Stopping Onanchor");
-            foreach (ParticleSystem system in this.onAnchor)
-            {
-                this.DebugPrint("      <MPM> Found a PS");
-                if (system.isPlaying)
-                {
-                    system.Stop(true);
-                    system.Clear(true);
-                    this.SanityCheckPS(prefix, system);
-                }
-            }
-            this.DebugPrint("    <MPM> Stopping OnWeaponCharge");
-            if (this.onWeaponCharge != null)
-            {
-                foreach (ParticleSystem system in this.onWeaponCharge)
-                {
-                    this.DebugPrint("      <MPM> Found a PS");
-                    if (system.isPlaying)
-                    {
-                        system.Stop(true);
-                        system.Clear(true);
-                        this.SanityCheckPS(prefix, system);
-                    }
-                }
-            }
-            this.DebugPrint("    <MPM> Stopping OnWeaponFiring");
-            if (this.onWeaponFiring != null)
-            {
-                foreach (ParticleSystem system in this.onWeaponFiring)
-                {
-                    this.DebugPrint("      <MPM> Found a PS");
-                    if (system.isPlaying)
-                    {
-                        system.Stop(true);
-                        system.Clear(true);
-                        this.SanityCheckPS(prefix, system);
-                    }
-                }
-            }
+
             this.DebugPrint("    <MPM> Stopping beforeBarrelFired");
             if (this.beforeBarrelFired != null)
             {
                 foreach (List<ParticleSystem> system_list in this.beforeBarrelFired)
                 {
-                    foreach (ParticleSystem system in system_list)
-                    {
-                        this.DebugPrint("      <MPM> Found a PS");
-                        if (system.isPlaying)
-                        {
-                            system.Stop(true);
-                            system.Clear(true);
-                            this.SanityCheckPS(prefix, system);
-                        }
-                    }
+                    this.stopAndClearSelectedParticles(system_list, "      ", "<MPM> Stopping SystemList in Barrels");
                 }
             }
             return;
