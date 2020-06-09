@@ -274,7 +274,7 @@ namespace ParticleManager
                 }
             }
 
-            if (retval <= 0.0f)
+            if (retval <= 0.0f && this.onBarrelFired != null)
             {
                 if (this.AllAtOnce)
                 {
@@ -489,6 +489,9 @@ namespace ParticleManager
         public bool AlignCannonBarrels(CannonBarrel[] m_CannonBarrels)
         {
             this.DebugPrint("<MPM> AlignCannonBarrels");
+            this.onBarrelFired = new List<List<ParticleSystem>>();
+            this.onBarrelFired.Add(new List<ParticleSystem>());
+
             if (this.initOnBarrelFired != null && this.initOnBarrelFired.Count > 0)
             {
                 this.onBarrelFired = new List<List<ParticleSystem>>();
