@@ -25,12 +25,16 @@ namespace ParticleManager
     [Serializable()]
     public enum MetadataType
     {
-        Attach = 0,
-        Anchor = 1,
-        WeaponCharge = 2,
-        BarrelCharge = 3,
-        WeaponFiring = 4,
-        BarrelFired = 5,
-        None = 6
+        None = 0,
+        Attach = 1,
+        Anchor = 2,
+        WeaponCharge = 3,
+        BarrelCharge = 4,
+        WeaponFiring = 5,
+        BarrelFired = 6,
+        FanFire = 7,
+        FanIdle = 8,
+        JetIdle = 9,
+        OnEnergyPresent = 10
     }
 }

@@ -328,24 +328,6 @@ namespace ParticleManager
                     int offset = 0;
                     for (int i = 0; i < this.numStartModifications; i++)
                     {
-                        // no longer do this, since all startDelays are as if do right away, delay time is replaced with Coroutine execution delay
-                        /* if (systemList != null)
-                        List<ParticleSystem> systemList = this.beforeBarrelFired[curr_barrel];
-                        if (systemList != null)
-                        {
-                            for (int j = 0; j < systemList.Count; j++)
-                            {
-                                if (this.adjStartDelay[curr_barrel] != 0.0f)
-                                {
-                                    var main = systemList[j].main;
-                                    main.startDelay = this.defaultTimeNeeded[curr_barrel][j] - this.adjStartDelay[curr_barrel];
-
-                                    var main2 = systemList[j].main;
-                                    this.DebugPrint("    <MPM> Detected startDelay: " + main2.startDelay.constant.ToString());
-                                }
-                            }
-                        } */
-
                         List<ParticleSystem> systemList = this.beforeBarrelFired[curr_barrel];
                         if (systemList != null)
                         {
@@ -450,14 +432,6 @@ namespace ParticleManager
                     List<ParticleSystem> systemList = this.beforeBarrelFired[i];
                     this.stopSelectedParticles(systemList, "      ", "<MPM> Attempting to stop Barrel #" + i.ToString() + " particles");
 
-                    /* if (this.adjCycleDelay[0] > 0.0f)
-                    {
-                        StartCoroutine(this.playSelectedParticlesWithDelay(systemList, "      ", "<MPM> Attempting to play Barrel #" + i.ToString() + " particles", this.adjCycleDelay[0]));
-                    }
-                    else
-                    {
-                        this.playSelectedParticles(systemList, "      ", "<MPM> Attempting to play Barrel #" + i.ToString() + " particles");
-                    } */
                     this.playSelectedParticles(systemList, "      ", "<MPM> Attempting to play Barrel #" + i.ToString() + " particles");
                 }
             }
@@ -489,8 +463,6 @@ namespace ParticleManager
         public bool AlignCannonBarrels(CannonBarrel[] m_CannonBarrels)
         {
             this.DebugPrint("<MPM> AlignCannonBarrels");
-            this.onBarrelFired = new List<List<ParticleSystem>>();
-            this.onBarrelFired.Add(new List<ParticleSystem>());
 
             if (this.initOnBarrelFired != null && this.initOnBarrelFired.Count > 0)
             {
