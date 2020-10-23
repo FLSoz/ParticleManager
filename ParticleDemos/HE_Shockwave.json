@@ -1,5 +1,6 @@
 
 {
+    // The initial code, and the models for this block came from Saelem Black's Gungnir Railgun. Get it here: https://forum.terratechgame.com/index.php?threads/hawkeye-black-labs-released-blocks.21051/
     "Name":                 "shockwave Cannon",
     "Description":          "A Black Labs weapon built on the HG1 chassis, the Gungnir Railgun was designed from the ground up to compete with naval-class weaponry. Using sheer kinetic force, it can puncture shields and crater the tech inside. Also comes with a laser pointer!",
 
