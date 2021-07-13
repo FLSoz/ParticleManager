@@ -1,4 +1,4 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using System.Reflection;
 using UnityEngine;
 
@@ -8,7 +8,7 @@ namespace ParticleManager
     {
         public static void Main()
         {
-            HarmonyInstance.Create("flsoz.ttmm.particlesystemmanager.mod").PatchAll(Assembly.GetExecutingAssembly());
+            new Harmony("flsoz.ttmm.particlesystemmanager.mod").PatchAll(Assembly.GetExecutingAssembly());
         }
     }
 }
