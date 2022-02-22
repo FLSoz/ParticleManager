@@ -1,9 +1,0 @@
-{
-  "Id": "A tool for usage by TT block modders.\nAdds ways to more finely manage when particles play",
-  "DisplayName": "Particle Manager",
-  "Author": "FLSoz",
-  "Version": "0.1.0",
-  "Enable": true,
-  "AssemblyName": "ParticleManager.dll",
-  "EntryMethod": "ParticleManager.QPatch.Main"
-}
