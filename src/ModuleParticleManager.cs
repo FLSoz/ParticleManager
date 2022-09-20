@@ -573,8 +573,8 @@ namespace ParticleManager
             this.GetComponentsInChildren<CannonBarrel>(true);
 
             // hook up the functions to the events (OnAttach, OnDetach, OnAnchorStatusChanged)
-            this.block.AttachEvent.Subscribe(new System.Action(this.OnAttach));
-            this.block.DetachEvent.Subscribe(new System.Action(this.OnDetach));
+            this.block.AttachedEvent.Subscribe(new System.Action(this.OnAttach));
+            this.block.DetachingEvent.Subscribe(new System.Action(this.OnDetach));
             this.DebugPrint("<MPM> Pool subscribe block attachments");
 
             this.m_ModuleWeaponGun = this.GetComponent<ModuleWeaponGun>();

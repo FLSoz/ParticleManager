@@ -145,7 +145,7 @@ namespace ParticleManager
                 if (!newModule.AlignCannonBarrels(__m_CannonBarrels)) return;
 
                 // since we want good charge timing, no variance is allowed
-                __m_CooldownVariancePct = 0.0f;
+                m_CooldownVariancePct.SetValue(__instance, 0.0f);
 
                 // Get info on what to do based on reload times:
 
