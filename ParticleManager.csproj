@@ -60,7 +60,7 @@
     <Compile Include="src\ModuleParticleManager.cs" />
     <Compile Include="src\MyExtensions.cs" />
     <Compile Include="src\ParticleSystemMetadata.cs" />
-    <Compile Include="src\QPatch.cs" />
+    <Compile Include="src\ParticleManagerMod.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

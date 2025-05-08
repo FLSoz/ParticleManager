@@ -4,14 +4,6 @@ using UnityEngine;
 
 namespace ParticleManager
 {
-    public class QPatch
-    {
-        public static void Main()
-        {
-            ParticleManagerMod.harmony.PatchAll(Assembly.GetExecutingAssembly());
-        }
-    }
-
     public class ParticleManagerMod : ModBase
     {
         const string HarmonyID = "flsoz.ttmm.particlesystemmanager.mod";
@@ -24,7 +16,7 @@ namespace ParticleManager
 
         public override void Init()
         {
-            QPatch.Main();
+            ParticleManagerMod.harmony.PatchAll();
         }
     }
 }

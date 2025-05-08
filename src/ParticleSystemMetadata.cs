@@ -6,20 +6,13 @@ using System.Runtime.Serialization;
 namespace ParticleManager
 {
     [Serializable()]
-    public class ParticleSystemMetadata
+    public struct ParticleSystemMetadata
     {
         public ParticleSystem m_system;
+        public Spinner spinner;
         public float value;
         public CannonBarrel CannonBarrel;
         public MetadataType type;
-
-        public ParticleSystemMetadata()
-        {
-            this.m_system = null;
-            this.value = 0.0f;
-            this.CannonBarrel = null;
-            this.type = MetadataType.None;
-        }
     }
 
     [Serializable()]
